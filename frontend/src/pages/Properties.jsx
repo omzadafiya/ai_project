@@ -65,7 +65,7 @@ const Properties = () => {
         </div>
         <button 
           onClick={() => setShowModal(true)}
-          className="bg-primary hover:bg-primary/90 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg shadow-primary/20 active:scale-95"
+          className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl font-semibold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
         >
           <Plus size={20} />
           Add Property
@@ -101,7 +101,7 @@ const Properties = () => {
                   </button>
                 </div>
                 <div className="absolute bottom-4 left-4">
-                  <span className="bg-primary/90 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md">
+                  <span className="bg-indigo-600/90 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-md">
                     {prop.type}
                   </span>
                 </div>
@@ -109,7 +109,7 @@ const Properties = () => {
               <div className="p-5 space-y-3">
                 <h4 className="font-bold text-lg text-white line-clamp-1">{prop.title}</h4>
                 <div className="flex items-center gap-2 text-slate-400 text-sm font-medium">
-                  <MapPin size={14} className="text-accent" />
+                  <MapPin size={14} className="text-purple-400" />
                   {prop.location}
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-white/5">
@@ -125,7 +125,6 @@ const Properties = () => {
         </AnimatePresence>
       </div>
 
-      {/* Add Property Modal */}
       <AnimatePresence>
         {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -138,7 +137,7 @@ const Properties = () => {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-surface border border-white/10 w-full max-w-lg rounded-3xl shadow-2xl relative overflow-hidden z-10"
+              className="bg-slate-900 border border-white/10 w-full max-w-lg rounded-3xl shadow-2xl relative overflow-hidden z-10"
             >
               <div className="p-8 space-y-6">
                 <div className="flex justify-between items-center">
@@ -150,7 +149,7 @@ const Properties = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-300">Property Title</label>
                     <input 
-                      required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-primary transition-all" 
+                      required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-all" 
                       placeholder="e.g. Modern 2BHK in Surat City"
                       value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})}
                     />
@@ -159,7 +158,7 @@ const Properties = () => {
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-300">Location</label>
                       <input 
-                        required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-primary"
+                        required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
                         placeholder="e.g. Surat"
                         value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})}
                       />
@@ -167,7 +166,7 @@ const Properties = () => {
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-300">Price (Approx)</label>
                       <input 
-                        required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-primary"
+                        required className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
                         placeholder="e.g. 15 Lakh"
                         value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})}
                       />
@@ -176,25 +175,25 @@ const Properties = () => {
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-300">Property Type</label>
                     <select 
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-primary"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
                       value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}
                     >
-                      <option className="bg-surface">1BHK</option>
-                      <option className="bg-surface">2BHK</option>
-                      <option className="bg-surface">3BHK</option>
-                      <option className="bg-surface">Villa</option>
-                      <option className="bg-surface">Commercial</option>
+                      <option className="bg-slate-900">1BHK</option>
+                      <option className="bg-slate-900">2BHK</option>
+                      <option className="bg-slate-900">3BHK</option>
+                      <option className="bg-slate-900">Villa</option>
+                      <option className="bg-slate-900">Commercial</option>
                     </select>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-300">Image URL (Optional)</label>
                     <input 
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-primary"
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
                       placeholder="https://images.unsplash.com/..."
                       value={formData.imageUrl} onChange={e => setFormData({...formData, imageUrl: e.target.value})}
                     />
                   </div>
-                  <button className="w-full bg-primary py-3.5 rounded-xl font-bold text-lg mt-4 shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all">
+                  <button className="w-full bg-indigo-600 py-3.5 rounded-xl font-bold text-lg mt-4 shadow-lg shadow-indigo-600/20 hover:scale-[1.02] active:scale-95 transition-all">
                     Public Listing
                   </button>
                 </form>

@@ -41,7 +41,7 @@ const Dashboard = () => {
 
   const columns = [
     { id: 'New', title: 'New Inquiries', icon: '📥', color: 'border-blue-500/20 bg-blue-500/[0.02]', headerColor: 'text-blue-400' },
-    { id: 'Qualified', title: 'AI Qualified', icon: '✨', color: 'border-primary/30 bg-primary/[0.03]', headerColor: 'text-primary' },
+    { id: 'Qualified', title: 'AI Qualified', icon: '✨', color: 'border-indigo-500/30 bg-indigo-500/[0.03]', headerColor: 'text-indigo-400' },
     { id: 'Contacted', title: 'Contacted', icon: '🤝', color: 'border-amber-500/20 bg-amber-500/[0.02]', headerColor: 'text-amber-400' },
     { id: 'Closed', title: 'Closed Won', icon: '🎉', color: 'border-emerald-500/20 bg-emerald-500/[0.02]', headerColor: 'text-emerald-400' },
   ];
@@ -51,9 +51,9 @@ const Dashboard = () => {
       {/* Analytics Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-            { label: 'Total Leads', value: stats.totalLeads, color: 'text-primary', icon: '💎' },
+            { label: 'Total Leads', value: stats.totalLeads, color: 'text-indigo-400', icon: '💎' },
             { label: 'Live Inventory', value: stats.totalProperties, color: 'text-emerald-400', icon: '🏡' },
-            { label: 'AI Efficiency', value: '98%', color: 'text-accent', icon: '⚡' }
+            { label: 'AI Efficiency', value: '98%', color: 'text-purple-400', icon: '⚡' }
         ].map((item) => (
             <div key={item.label} className="glass rounded-2xl p-6 border border-white/5 flex items-center justify-between group hover:border-white/20 transition-all">
                 <div>
@@ -97,13 +97,13 @@ const Dashboard = () => {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                    className="bg-surface/80 backdrop-blur-sm border border-white/10 p-5 rounded-xl shadow-lg hover:border-primary/40 hover:shadow-primary/5 transition-all group cursor-pointer relative overflow-hidden"
+                    className="bg-slate-900/80 backdrop-blur-sm border border-white/10 p-5 rounded-xl shadow-lg hover:border-indigo-500/40 hover:shadow-indigo-500/5 transition-all group cursor-pointer relative overflow-hidden"
                   >
-                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-primary/10 to-transparent rounded-bl-full pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-bl-full pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity"></div>
                     
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2 text-slate-200">
-                        <Phone size={14} className="text-primary" />
+                        <Phone size={14} className="text-indigo-400" />
                         <span className="font-mono text-sm font-semibold">{lead.phoneId}</span>
                       </div>
                       <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium bg-black/20 px-2 py-0.5 rounded-full">
@@ -115,19 +115,19 @@ const Dashboard = () => {
                     <div className="space-y-2.5">
                       {lead.location && (
                         <div className="flex items-start gap-2.5 text-sm text-slate-300">
-                          <MapPin size={16} className="mt-0.5 text-accent opacity-80" />
+                          <MapPin size={16} className="mt-0.5 text-purple-400 opacity-80" />
                           <span className="font-medium line-clamp-1 leading-snug">{lead.location}</span>
                         </div>
                       )}
                       {lead.budget && (
                         <div className="flex items-center gap-2.5 text-sm">
-                          <IndianRupee size={16} className="text-accent opacity-80" />
+                          <IndianRupee size={16} className="text-purple-400 opacity-80" />
                           <span className="font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">{lead.budget}</span>
                         </div>
                       )}
                       {lead.propertyType && (
                         <div className="flex items-center gap-2.5 text-sm text-slate-300">
-                          <Home size={16} className="text-accent opacity-80" />
+                          <Home size={16} className="text-purple-400 opacity-80" />
                           <span className="bg-white/10 px-2.5 py-0.5 rounded-md text-xs font-semibold">{lead.propertyType}</span>
                         </div>
                       )}
@@ -137,12 +137,12 @@ const Dashboard = () => {
                         <select 
                             value={lead.status}
                             onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
-                            className="bg-black/40 text-[10px] font-bold py-1.5 px-3 rounded-lg border border-white/10 outline-none text-slate-300 hover:border-primary transition-all cursor-pointer"
+                            className="bg-black/40 text-[10px] font-bold py-1.5 px-3 rounded-lg border border-white/10 outline-none text-slate-300 hover:border-indigo-500 transition-all cursor-pointer"
                         >
                             {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                         </select>
                         <div className="flex items-center gap-1.5 grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary ring-2 ring-primary/20"></span>
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 ring-2 ring-indigo-500/20"></span>
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Verified</span>
                         </div>
                     </div>

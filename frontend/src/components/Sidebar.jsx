@@ -16,7 +16,7 @@ const Sidebar = () => {
   return (
     <aside className="w-68 glass border-r border-white/5 h-screen flex flex-col pt-6 z-20">
       <div className="px-6 flex items-center gap-3 mb-10">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white font-bold shadow-lg shadow-primary/20">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-500/20">
           A
         </div>
         <h1 className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">AstroEstate</h1>
@@ -29,7 +29,7 @@ const Sidebar = () => {
             to={link.path}
             className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl transition-all ${
               location.pathname === link.path 
-                ? 'bg-primary/20 text-white border border-primary/30 shadow-lg shadow-primary/5' 
+                ? 'bg-indigo-500/20 text-white border border-indigo-500/30 shadow-lg shadow-indigo-500/5' 
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >

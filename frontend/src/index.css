@@ -1,17 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 body {
-  background-color: theme('colors.background');
+  background-color: #0F172A;
   color: #f8fafc;
   font-family: 'Inter', system-ui, sans-serif;
 }
 
 @layer utilities {
   .glass {
-    @apply bg-surface/70 backdrop-blur-md border border-white/5 shadow-xl;
+    @apply bg-slate-800/70 backdrop-blur-md border border-white/5 shadow-xl;
   }
 }
