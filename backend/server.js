@@ -31,6 +31,34 @@ const leadSchema = new mongoose.Schema({
 });
 const Lead = mongoose.model('Lead', leadSchema);
 
+// Property Schema
+const propertySchema = new mongoose.Schema({
+    title: String,
+    location: String,
+    price: String,
+    type: String, // 1BHK, 2BHK, etc.
+    imageUrl: String,
+    description: String,
+    createdAt: { type: Date, default: Date.now }
+});
+const Property = mongoose.model('Property', propertySchema);
+
+// Message Schema (for Live Chat)
+const messageSchema = new mongoose.Schema({
+    phoneId: String,
+    text: String,
+    sender: { type: String, enum: ['user', 'ai', 'agent'] },
+    createdAt: { type: Date, default: Date.now }
+});
+const Message = mongoose.model('Message', messageSchema);
+
+// Settings Schema (for Human Takeover)
+const chatSettingsSchema = new mongoose.Schema({
+    phoneId: String,
+    aiEnabled: { type: Boolean, default: true }
+});
+const ChatSettings = mongoose.model('ChatSettings', chatSettingsSchema);
+
 // In-memory conversation state (phone -> { history: [] })
 const userSessions = new Map();
 
@@ -50,8 +78,11 @@ If you have COLLECTED ALL 3 constraints, you MUST stop asking questions and use 
 {"complete": true, "location": "Surat", "budget": "10 lakh", "type": "2BHK", "replyMsg": "Thank you! Our agent will contact you shortly with the best properties."}`;
 
 // 11za Send Message API
-async function sendWhatsAppMessage(to, text) {
+async function sendWhatsAppMessage(to, text, sender = 'ai') {
     try {
+        // Log to database
+        await new Message({ phoneId: to, text, sender }).save();
+
         await axios.post('https://internal.11za.in/apis/sendMessage/sendMessages', {
             sendto: to,
             authToken: process.env.WHATSAPP_AUTH_TOKEN,
@@ -76,6 +107,21 @@ app.post('/webhook', async (req, res) => {
         const incomingText = req.body.UserResponse || (req.body.content && req.body.content.text) || req.body.text || "";
 
         if (!incomingText) return res.status(200).send('No text found');
+
+        // Log incoming message to database
+        await new Message({ phoneId: senderId, text: incomingText, sender: 'user' }).save();
+
+        // Check if AI is enabled for this user (Human Takeover)
+        const settings = await ChatSettings.findOneAndUpdate(
+            { phoneId: senderId },
+            { $setOnInsert: { aiEnabled: true } },
+            { upsert: true, new: true }
+        );
+
+        if (!settings.aiEnabled) {
+            console.log(`🤖 AI is disabled for ${senderId}. Waiting for human agent.`);
+            return res.status(200).send('AI Disabled');
+        }
 
         // Get or create session
         if (!userSessions.has(senderId)) {
@@ -110,10 +156,22 @@ app.post('/webhook', async (req, res) => {
                 await newLead.save();
                 console.log('✅ New Lead Saved to MongoDB:', newLead);
 
+                // --- AI Property Matching (RAG) ---
+                const matches = await Property.find({
+                    location: { $regex: new RegExp(data.location, 'i') },
+                    type: data.type
+                }).limit(3);
+
+                let finalReply = data.replyMsg;
+                if (matches.length > 0) {
+                    const matchText = matches.map(p => `🏠 ${p.title} - ${p.price}\n📍 ${p.location}`).join('\n\n');
+                    finalReply = `Perfect! I found some properties matching your requirements in ${data.location}:\n\n${matchText}\n\nOur agent will contact you for more details!`;
+                }
+
                 // Send final message and clear session
-                await sendWhatsAppMessage(senderId, data.replyMsg);
+                await sendWhatsAppMessage(senderId, finalReply);
                 userSessions.delete(senderId);
-                return res.status(200).send('Lead saved and replied');
+                return res.status(200).send('Lead saved and matched');
             }
 
             // Normal conversational reply
@@ -144,8 +202,108 @@ app.get('/api/leads', async (req, res) => {
     }
 });
 
+// Property APIs
+app.get('/api/properties', async (req, res) => {
+    try {
+        const props = await Property.find().sort({ createdAt: -1 });
+        res.json(props);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch properties' });
+    }
+});
+
+app.post('/api/properties', async (req, res) => {
+    try {
+        const newProperty = new Property(req.body);
+        await newProperty.save();
+        res.status(201).json(newProperty);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to create property' });
+    }
+});
+
+app.delete('/api/properties/:id', async (req, res) => {
+    try {
+        await Property.findByIdAndDelete(req.params.id);
+        res.json({ message: 'Property deleted' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete property' });
+    }
+});
+
+app.put('/api/leads/:id', async (req, res) => {
+    try {
+        const lead = await Lead.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(lead);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update lead' });
+    }
+});
+
+app.get('/api/stats', async (req, res) => {
+    try {
+        const totalLeads = await Lead.countDocuments();
+        const totalProperties = await Property.countDocuments();
+        const statusCounts = await Lead.aggregate([
+            { $group: { _id: "$status", count: { $sum: 1 } } }
+        ]);
+        res.json({ totalLeads, totalProperties, statusCounts });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch stats' });
+    }
+});
+
 app.get('/api/leads/poll', async (req, res) => {
     console.log("Polling endpoint hit for new leads UI");
+});
+
+// Chat APIs
+app.get('/api/chats/:phoneId', async (req, res) => {
+    try {
+        const msgs = await Message.find({ phoneId: req.params.phoneId }).sort({ createdAt: 1 });
+        res.json(msgs);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+});
+
+app.get('/api/chat-sessions', async (req, res) => {
+    try {
+        // Get unique phone numbers that have messaged
+        const sessions = await Message.distinct('phoneId');
+        res.json(sessions);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch sessions' });
+    }
+});
+
+app.post('/api/chat/reply', async (req, res) => {
+    try {
+        const { phoneId, text } = req.body;
+        await sendWhatsAppMessage(phoneId, text, 'agent');
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to send agent reply' });
+    }
+});
+
+app.post('/api/chat/toggle-ai', async (req, res) => {
+    try {
+        const { phoneId, enabled } = req.body;
+        await ChatSettings.findOneAndUpdate({ phoneId }, { aiEnabled: enabled }, { upsert: true });
+        res.json({ success: true, aiEnabled: enabled });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to toggle AI' });
+    }
+});
+
+app.get('/api/chat/status/:phoneId', async (req, res) => {
+    try {
+        const settings = await ChatSettings.findOne({ phoneId: req.params.phoneId });
+        res.json({ aiEnabled: settings ? settings.aiEnabled : true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get AI status' });
+    }
 });
 
 // React SPA Fallback Route
