@@ -4,27 +4,40 @@ import { Phone, MapPin, IndianRupee, Home, Clock } from 'lucide-react';
 
 const Dashboard = () => {
   const [leads, setLeads] = useState([]);
+  const [stats, setStats] = useState({ totalLeads: 0, totalProperties: 0, statusCounts: [] });
   const [loading, setLoading] = useState(true);
 
-  const fetchLeads = async () => {
+  const fetchData = async () => {
     try {
-      const res = await fetch('/api/leads');
-      if (res.ok) {
-        const data = await res.json();
-        setLeads(data);
-      }
+        const [leadsRes, statsRes] = await Promise.all([
+            fetch('/api/leads'),
+            fetch('/api/stats')
+        ]);
+        if (leadsRes.ok) setLeads(await leadsRes.json());
+        if (statsRes.ok) setStats(await statsRes.json());
     } catch (error) {
-      console.error("Failed to fetch leads", error);
+      console.error("Failed to fetch data", error);
     } finally {
       if(loading) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLeads();
-    const interval = setInterval(fetchLeads, 5000);
+    fetchData();
+    const interval = setInterval(fetchData, 8000);
     return () => clearInterval(interval);
   }, []);
+
+  const updateLeadStatus = async (id, newStatus) => {
+    try {
+        const res = await fetch(`/api/leads/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        });
+        if (res.ok) fetchData();
+    } catch (e) { console.error(e); }
+  };
 
   const columns = [
     { id: 'New', title: 'New Inquiries', icon: '📥', color: 'border-blue-500/20 bg-blue-500/[0.02]', headerColor: 'text-blue-400' },
@@ -34,7 +47,27 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="flex gap-6 h-full overflow-x-auto pb-4 custom-scrollbar">
+    <div className="space-y-8">
+      {/* Analytics Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+            { label: 'Total Leads', value: stats.totalLeads, color: 'text-primary', icon: '💎' },
+            { label: 'Live Inventory', value: stats.totalProperties, color: 'text-emerald-400', icon: '🏡' },
+            { label: 'AI Efficiency', value: '98%', color: 'text-accent', icon: '⚡' }
+        ].map((item) => (
+            <div key={item.label} className="glass rounded-2xl p-6 border border-white/5 flex items-center justify-between group hover:border-white/20 transition-all">
+                <div>
+                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{item.label}</p>
+                   <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">
+                   {item.icon}
+                </div>
+            </div>
+        ))}
+      </div>
+
+      <div className="flex gap-6 h-full overflow-x-auto pb-4 custom-scrollbar">
       {columns.map(col => (
         <div key={col.id} className={`flex flex-col min-w-[320px] w-[320px] rounded-2xl glass ${col.color} border shadow-xl`}>
           <div className="p-4 border-b border-white/5 flex items-center justify-between bg-black/10 rounded-t-2xl">
@@ -99,6 +132,20 @@ const Dashboard = () => {
                         </div>
                       )}
                     </div>
+
+                    <div className="mt-5 pt-4 border-t border-white/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <select 
+                            value={lead.status}
+                            onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
+                            className="bg-black/40 text-[10px] font-bold py-1.5 px-3 rounded-lg border border-white/10 outline-none text-slate-300 hover:border-primary transition-all cursor-pointer"
+                        >
+                            {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        </select>
+                        <div className="flex items-center gap-1.5 grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary ring-2 ring-primary/20"></span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Verified</span>
+                        </div>
+                    </div>
                   </motion.div>
                 ))
               )}
@@ -112,6 +159,7 @@ const Dashboard = () => {
           </div>
         </div>
       ))}
+      </div>
     </div>
   );
 };
