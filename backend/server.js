@@ -10,7 +10,9 @@ const path = require('path');
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+// Serve Static Files from Unified Frontend
+const frontendPath = path.join(__dirname, 'frontend/dist');
+app.use(express.static(frontendPath));
 
 // Initialize Gemini
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -307,12 +309,10 @@ app.get('/api/chat/status/:phoneId', async (req, res) => {
 });
 
 // React SPA Fallback Route
-app.use((req, res, next) => {
-    // Only intercept non-API routes
+// SPA Fallback: Serve index.html for non-API routes
+app.get('*', (req, res) => {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/webhook')) {
-        res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
-    } else {
-        next();
+        res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
     }
 });
 
