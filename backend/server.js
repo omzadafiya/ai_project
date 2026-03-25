@@ -149,10 +149,12 @@ app.get('/api/leads/poll', async (req, res) => {
 });
 
 // React SPA Fallback Route
-app.get('*', (req, res) => {
+app.use((req, res, next) => {
     // Only intercept non-API routes
     if (!req.path.startsWith('/api') && !req.path.startsWith('/webhook')) {
         res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+    } else {
+        next();
     }
 });
 
