@@ -310,7 +310,7 @@ app.get('/api/chat/status/:phoneId', async (req, res) => {
 
 // React SPA Fallback Route
 // SPA Fallback: Serve index.html for non-API routes
-app.get('*', (req, res) => {
+app.get('(.*)', (req, res) => {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/webhook')) {
         res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
     }
