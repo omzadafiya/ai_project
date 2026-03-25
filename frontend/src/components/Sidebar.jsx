@@ -16,7 +16,7 @@ const Sidebar = () => {
         <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-primary to-accent flex items-center justify-center text-white font-bold shadow-lg shadow-primary/20">
           11
         </div>
-        <h1 className="text-xl font-bold tracking-tight">11za CRM</h1>
+        <h1 className="text-xl font-bold tracking-tight">AstroEstateCRM</h1>
       </div>
 
       <nav className="flex-1 px-4 space-y-2">
