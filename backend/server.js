@@ -70,10 +70,9 @@ app.post('/webhook', async (req, res) => {
     try {
         console.log('Incoming Webhook:', JSON.stringify(req.body, null, 2));
         
-        // Extract sender and message text (Adjust according to actual 11za incoming payload)
-        // Note: Assuming a generic incoming structure for now.
-        const senderId = req.body.sender || req.body.from || "919904362053"; 
-        const incomingText = req.body.text || req.body.message || "";
+        // Extract sender and message text matching 11za format
+        const senderId = req.body.from || req.body.sender || "919904362053"; 
+        const incomingText = req.body.UserResponse || (req.body.content && req.body.content.text) || req.body.text || "";
 
         if (!incomingText) return res.status(200).send('No text found');
 
