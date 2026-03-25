@@ -25,7 +25,7 @@ const colCounts = {
 
 async function fetchLeads() {
     try {
-        const response = await fetch('http://localhost:3000/api/leads');
+        const response = await fetch('/api/leads');
         const leads = await response.json();
         
         let counts = { 'New': 0, 'Qualified': 0, 'Contacted': 0, 'Closed': 0 };
