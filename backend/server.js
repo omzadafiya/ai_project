@@ -10,7 +10,7 @@ const path = require('path');
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, '../frontend')));
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // Initialize Gemini
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -146,6 +146,14 @@ app.get('/api/leads', async (req, res) => {
 
 app.get('/api/leads/poll', async (req, res) => {
     console.log("Polling endpoint hit for new leads UI");
+});
+
+// React SPA Fallback Route
+app.get('*', (req, res) => {
+    // Only intercept non-API routes
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/webhook')) {
+        res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+    }
 });
 
 const PORT = process.env.PORT || 3000;
