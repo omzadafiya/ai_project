@@ -35,18 +35,19 @@ const Lead = mongoose.model('Lead', leadSchema);
 const userSessions = new Map();
 
 const systemPrompt = `You are an expert Real Estate Assistant working for 11za Real Estate on WhatsApp.
-Your goal is to warmly welcome the user and collect exactly 3 pieces of information to qualify them:
+Your goal is to collect exactly 3 pieces of information to qualify them:
 1) Preferred Location
 2) Budget
 3) Property Type (1BHK/2BHK/Villa/Commercial)
 
-Rules:
-- Be extremely polite, short, and conversational.
-- Ask ONE question at a time.
-- If you already have a piece of information, do NOT ask for it again.
-- ONCE you have collected ALL 3 pieces of information, you MUST stop conversing naturally and output ONLY a raw JSON object like this:
-{"complete": true, "location": "Andheri", "budget": "25000", "type": "2BHK", "replyMsg": "Thank you! Our agent will contact you shortly with the best properties."}
-Do NOT wrap the JSON in markdown blocks (like \`\`\`json). Just the raw JSON string.`;
+CRITICAL RULE: You MUST output EVERY SINGLE response as a raw JSON object. NEVER output plain text.
+Do NOT wrap the JSON in markdown blocks (like \`\`\`json). Just the raw JSON string.
+
+If you are STILL asking questions to collect the 3 constraints, use this JSON format:
+{"complete": false, "replyMsg": "Great! And what is your budget for this property?"}
+
+If you have COLLECTED ALL 3 constraints, you MUST stop asking questions and use this JSON format:
+{"complete": true, "location": "Surat", "budget": "10 lakh", "type": "2BHK", "replyMsg": "Thank you! Our agent will contact you shortly with the best properties."}`;
 
 // 11za Send Message API
 async function sendWhatsAppMessage(to, text) {
@@ -93,38 +94,40 @@ app.post('/webhook', async (req, res) => {
             config: { systemInstruction: systemPrompt }
         });
 
-        const replyText = response.text.trim();
+        let replyText = response.text.trim();
+        replyText = replyText.replace(/```json/g, '').replace(/```/g, '').trim();
         
-        // Check if Gemini outputted the final JSON
-        if (replyText.startsWith('{') && replyText.endsWith('}')) {
-            try {
-                const data = JSON.parse(replyText);
-                if (data.complete) {
-                    // Save to MongoDB
-                    const newLead = new Lead({
-                        phoneId: senderId,
-                        location: data.location,
-                        budget: data.budget,
-                        propertyType: data.type
-                    });
-                    await newLead.save();
-                    console.log('✅ New Lead Saved to MongoDB:', newLead);
+        try {
+            const data = JSON.parse(replyText);
+            if (data.complete) {
+                // Save to MongoDB
+                const newLead = new Lead({
+                    phoneId: senderId,
+                    location: data.location,
+                    budget: data.budget,
+                    propertyType: data.type
+                });
+                await newLead.save();
+                console.log('✅ New Lead Saved to MongoDB:', newLead);
 
-                    // Send final message and clear session
-                    await sendWhatsAppMessage(senderId, data.replyMsg);
-                    userSessions.delete(senderId);
-                    return res.status(200).send('Lead saved and replied');
-                }
-            } catch (e) {
-                console.error("Failed to parse JSON from Gemini", e);
+                // Send final message and clear session
+                await sendWhatsAppMessage(senderId, data.replyMsg);
+                userSessions.delete(senderId);
+                return res.status(200).send('Lead saved and replied');
             }
+
+            // Normal conversational reply
+            session.history.push({ role: 'model', parts: [{ text: replyText }] });
+            await sendWhatsAppMessage(senderId, data.replyMsg);
+            res.status(200).send('Responded successfully');
+
+        } catch (e) {
+            console.error("Failed to parse JSON from Gemini", e, replyText);
+            // Fallback if AI messes up JSON format safely
+            session.history.push({ role: 'model', parts: [{ text: replyText }] });
+            await sendWhatsAppMessage(senderId, replyText);
+            res.status(200).send('Responded fallback');
         }
-
-        // Normal conversational reply
-        session.history.push({ role: 'model', parts: [{ text: replyText }] });
-        await sendWhatsAppMessage(senderId, replyText);
-
-        res.status(200).send('Responded successfully');
     } catch (error) {
         console.error('Webhook Error:', error);
         res.status(500).send('Error');
