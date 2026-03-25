@@ -51,7 +51,7 @@ Do NOT wrap the JSON in markdown blocks (like \`\`\`json). Just the raw JSON str
 // 11za Send Message API
 async function sendWhatsAppMessage(to, text) {
     try {
-        await axios.post('https://api.11za.in/apis/sendMessage/sendMessages', {
+        await axios.post('https://internal.11za.in/apis/sendMessage/sendMessages', {
             sendto: to,
             authToken: process.env.WHATSAPP_AUTH_TOKEN,
             originWebsite: "https://engees.in",
