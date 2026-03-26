@@ -6,12 +6,19 @@ const mongoose = require('mongoose');
 const { GoogleGenAI } = require('@google/genai');
 const axios = require('axios');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 // Serve Static Files from Unified Frontend
 const frontendPath = path.join(__dirname, 'frontend/dist');
+console.log("Checking frontend path:", frontendPath);
+if (fs.existsSync(frontendPath)) {
+    console.log("Frontend dist exists!");
+} else {
+    console.log("CRITICAL: Frontend dist NOT FOUND at", frontendPath);
+}
 app.use(express.static(frontendPath));
 
 // Initialize Gemini
@@ -309,10 +316,15 @@ app.get('/api/chat/status/:phoneId', async (req, res) => {
 });
 
 // React SPA Fallback Route
-// SPA Fallback: Serve index.html for non-API routes
-app.get('(.*)', (req, res) => {
+// SPA Fallback: Serve index.html for all other non-API/webhook routes
+app.get(/^(.*)$/, (req, res) => {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/webhook')) {
-        res.sendFile(path.join(__dirname, 'frontend/dist/index.html'));
+        const indexPath = path.join(__dirname, 'frontend/dist/index.html');
+        if (fs.existsSync(indexPath)) {
+            res.sendFile(indexPath);
+        } else {
+            res.status(404).send("Frontend build not found. Please wait for the build to complete.");
+        }
     }
 });
 
