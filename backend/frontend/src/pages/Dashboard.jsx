@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, MapPin, IndianRupee, Home, Clock } from 'lucide-react';
+import { Phone, MapPin, IndianRupee, Home, Clock, MessageSquare, LayoutDashboard } from 'lucide-react';
 
 const Dashboard = () => {
   const [leads, setLeads] = useState([]);
@@ -70,6 +70,33 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-8">
+      {/* Dashboard Global Header With Follow-Up Trigger */}
+      <div className="flex justify-between items-center bg-gradient-to-r from-slate-900 to-indigo-900/40 p-6 rounded-3xl border border-white/5 relative overflow-hidden">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/20 blur-3xl rounded-full"></div>
+        <div className="relative z-10">
+          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+             <LayoutDashboard className="text-indigo-400" /> Command Center
+          </h1>
+          <p className="text-slate-400">Monitor unified real estate leads from WhatsApp.</p>
+        </div>
+        <div className="relative z-10 flex gap-3">
+            <button 
+                onClick={async () => {
+                    const toastId = toast.loading('Dispatching AI Follow-ups...');
+                    try {
+                        const res = await fetch('/api/campaigns/followup', { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) toast.success(`Sent follow-ups to ${data.count} VIP leads!`, { id: toastId });
+                        else throw new Error();
+                    } catch { toast.error('Failed to trigger campaign', { id: toastId }); }
+                }}
+                className="bg-indigo-500 hover:bg-indigo-600 px-5 py-2.5 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
+            >
+                <MessageSquare size={16} /> Nurture Leads
+            </button>
+        </div>
+      </div>
+
       {/* Analytics Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[

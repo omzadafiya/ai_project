@@ -219,30 +219,35 @@ app.post('/webhook', async (req, res) => {
         
         try {
             const data = JSON.parse(replyText);
+            let finalReply = data.replyMsg;
+
             if (data.complete) {
-                // Save to MongoDB
-                const newLead = new Lead({
-                    phoneId: senderId,
-                    location: data.location,
-                    budget: data.budget,
-                    propertyType: data.type
-                });
-                await newLead.save();
-                console.log('✅ New Lead Saved to MongoDB:', newLead);
-
-                // --- AI Property Matching (RAG) ---
-                const matches = await Property.find({
-                    location: { $regex: new RegExp(data.location, 'i') },
-                    type: data.type
-                }).limit(3);
-
-                let finalReply = data.replyMsg;
-                if (matches.length > 0) {
-                    const matchText = matches.map(p => `*🏠 ${p.title}*\n*💰 Price:* ${p.price}\n*📍 Location:* ${p.location}\n*📝 Details:* ${p.description || 'Premium property ready to move in.'}\n*🖼️ View Property:* ${p.imageUrl || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=600'}`).join('\n\n------------------\n\n');
-                    finalReply = `${data.replyMsg}\n\nHere are the top matches for you in *${data.location}*:\n\n${matchText}\n\nOur agent will contact you shortly ${data.siteVisit === 'Yes' || data.siteVisit === 'yes' ? 'to confirm your site visit slot!' : 'for more details!'}`;
+                if (data.isFollowUp) {
+                    finalReply = data.replyMsg;
+                    const existingLead = await Lead.findOne({ phoneId: senderId }).populate('assignedAgent');
+                    if (existingLead && existingLead.assignedAgent && existingLead.assignedAgent.phone) {
+                        const agentMsg = `🚨 *Client Replied to Follow-up!*\n*Name:* ${senderName}\n*Message:* ${incomingText}\n*AI Replied:* ${finalReply}\n\nPlease prepare the documents/floor plans for them!`;
+                        await sendWhatsAppMessage(existingLead.assignedAgent.phone.replace(/[^0-9]/g, ''), agentMsg, 'agent');
+                    }
+                } else {
+                    const existingLead = await Lead.findOne({ phoneId: senderId });
+                    if (!existingLead) {
+                        await new Lead({
+                            phoneId: senderId,
+                            senderName,
+                            location: data.location,
+                            budget: data.budget,
+                            propertyType: data.type,
+                            status: 'Qualified'
+                        }).save();
+                    }
+                    const matches = await Property.find({ location: new RegExp(data.location, 'i') }).limit(3);
+                    if (matches.length > 0) {
+                        const matchText = matches.map(p => `*🏠 ${p.title}*\n*💰 Price:* ${p.price}\n*📍 Location:* ${p.location}\n*📝 Details:* ${p.description || 'Premium property ready to move in.'}\n*🖼️ View Property:* ${p.imageUrl || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=600'}`).join('\n\n------------------\n\n');
+                        finalReply = `${data.replyMsg}\n\nHere are the top matches for you in *${data.location}*:\n\n${matchText}\n\nOur executive will coordinate with you shortly ${data.siteVisit === 'Yes' || data.siteVisit === 'yes' ? 'to confirm your site visit slot!' : 'for more details!'}`;
+                    }
                 }
 
-                // Send final message and clear session
                 await sendWhatsAppMessage(senderId, finalReply);
                 await ChatSession.deleteOne({ phoneId: senderId });
                 return res.status(200).send('Lead saved and matched');
@@ -253,16 +258,15 @@ app.post('/webhook', async (req, res) => {
             session.updatedAt = Date.now();
             await session.save();
             await sendWhatsAppMessage(senderId, data.replyMsg);
-            res.status(200).send('Responded successfully');
+            return res.status(200).send('Responded successfully');
 
         } catch (e) {
             console.error("Failed to parse JSON from Mistral", e, replyText);
-            // Fallback if AI messes up JSON format safely
             session.history.push({ role: 'assistant', content: replyText });
             session.updatedAt = Date.now();
             await session.save();
             await sendWhatsAppMessage(senderId, replyText);
-            res.status(200).send('Responded fallback');
+            return res.status(200).send('Responded fallback');
         }
     } catch (error) {
         console.error('Webhook Error:', error);
@@ -328,15 +332,40 @@ app.put('/api/leads/:id/assign', async (req, res) => {
         const agent = await Agent.findById(agentId);
         
         if (agent && agent.phone) {
-            const agentMsg = `🚨 *New VIP Lead Assigned*\n\n*Name/Phone:* ${lead.senderName || lead.phoneId}\n*Requirement:* ${lead.propertyType} in ${lead.location}\n*Budget:* ${lead.budget}\n\nPlease contact them ASAP!`;
-            // Un-comment the line below if you want 11za to immediately ping the agent
+            const agentMsg = `🚨 *New VIP Lead Assigned*\n\n*Name:* ${lead.senderName || lead.phoneId}\n*Requirement:* ${lead.propertyType} in ${lead.location}\n*Budget:* ${lead.budget}\n\nPlease contact them ASAP!`;
             await sendWhatsAppMessage(agent.phone.replace(/[^0-9]/g, ''), agentMsg, 'agent');
-            
-            // Increment agent leads count safely
             await Agent.findByIdAndUpdate(agentId, { $inc: { leads: 1 } });
         }
         res.json(lead);
     } catch (error) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.post('/api/campaigns/followup', async (req, res) => {
+    try {
+        // Find qualified leads
+        const leads = await Lead.find({ status: { $in: ['Qualified', 'Follow Up'] } });
+        let count = 0;
+        
+        for (const lead of leads) {
+            const followUpMsg = `Hello ${lead.senderName ? lead.senderName.split(' ')[0] : 'Sir/Madam'}, this is Astro from 11za Realty. I shared some premium properties with you recently.\n\nWould you like me to share the detailed *3D floor-plans and high-res video walkthroughs* for those matches?`;
+            
+            await sendWhatsAppMessage(lead.phoneId, followUpMsg, 'ai');
+            
+            // Append to session history so Mistral knows the context when user replies
+            await ChatSession.findOneAndUpdate(
+                { phoneId: lead.phoneId },
+                { 
+                    $push: { history: { role: 'assistant', content: followUpMsg } },
+                    $set: { updatedAt: Date.now() }
+                }
+            );
+            count++;
+        }
+        res.json({ success: true, count });
+    } catch (error) {
+        console.error('Campaign Error:', error);
+        res.status(500).json({ error: 'Failed to launch automated campaign' });
+    }
 });
 
 app.get('/api/stats', async (req, res) => {
