@@ -33,6 +33,7 @@ const leadSchema = new mongoose.Schema({
     budget: String,
     propertyType: String,
     status: { type: String, default: 'Qualified' },
+    assignedAgent: { type: mongoose.Schema.Types.ObjectId, ref: 'Agent' },
     createdAt: { type: Date, default: Date.now }
 });
 const Lead = mongoose.model('Lead', leadSchema);
@@ -237,7 +238,10 @@ app.post('/webhook', async (req, res) => {
 
                 let finalReply = data.replyMsg;
                 if (matches.length > 0) {
-                    const matchText = matches.map(p => `*🏠 ${p.title}*\n*💰 Price:* ${p.price}\n*📍 Location:* ${p.location}\n*📝 Details:* ${p.description || 'Premium property ready to move in.'}\n*🖼️ View Details:* ${p.imageUrl || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=600'}`).join('\n\n------------------\n\n');
+                    const host = req.headers.host || 'ai-project-chi-eight.vercel.app';
+                    const protocol = req.headers['x-forwarded-proto'] || 'https';
+                    
+                    const matchText = matches.map(p => `*🏠 ${p.title}*\n*💰 Price:* ${p.price}\n*📍 Location:* ${p.location}\n*📝 Details:* ${p.description || 'Premium property ready to move in.'}\n*🌐 VIP Brochure:* ${protocol}://${host}/brochure/${p._id}`).join('\n\n------------------\n\n');
                     finalReply = `${data.replyMsg}\n\nHere are the top matches for you in *${data.location}*:\n\n${matchText}\n\nOur agent will contact you shortly ${data.siteVisit === 'Yes' || data.siteVisit === 'yes' ? 'to confirm your site visit slot!' : 'for more details!'}`;
                 }
 
@@ -284,9 +288,14 @@ app.get('/api/properties', async (req, res) => {
     try {
         const props = await Property.find().sort({ createdAt: -1 });
         res.json(props);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch properties' });
-    }
+    } catch (error) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.get('/api/properties/:id', async (req, res) => {
+    try {
+        const prop = await Property.findById(req.params.id);
+        res.json(prop);
+    } catch (error) { res.status(500).json({ error: 'Failed' }); }
 });
 
 app.post('/api/properties', async (req, res) => {
@@ -310,11 +319,27 @@ app.delete('/api/properties/:id', async (req, res) => {
 
 app.put('/api/leads/:id', async (req, res) => {
     try {
-        const lead = await Lead.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const lead = await Lead.findByIdAndUpdate(req.params.id, { status: req.body.status }, { new: true });
         res.json(lead);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to update lead' });
-    }
+    } catch (error) { res.status(500).json({ error: 'Failed' }); }
+});
+
+app.put('/api/leads/:id/assign', async (req, res) => {
+    try {
+        const { agentId } = req.body;
+        const lead = await Lead.findByIdAndUpdate(req.params.id, { assignedAgent: agentId }, { new: true });
+        const agent = await Agent.findById(agentId);
+        
+        if (agent && agent.phone) {
+            const agentMsg = `🚨 *New VIP Lead Assigned*\n\n*Name/Phone:* ${lead.senderName || lead.phoneId}\n*Requirement:* ${lead.propertyType} in ${lead.location}\n*Budget:* ${lead.budget}\n\nPlease contact them ASAP!`;
+            // Un-comment the line below if you want 11za to immediately ping the agent
+            await sendWhatsAppMessage(agent.phone.replace(/[^0-9]/g, ''), agentMsg, 'agent');
+            
+            // Increment agent leads count safely
+            await Agent.findByIdAndUpdate(agentId, { $inc: { leads: 1 } });
+        }
+        res.json(lead);
+    } catch (error) { res.status(500).json({ error: 'Failed' }); }
 });
 
 app.get('/api/stats', async (req, res) => {

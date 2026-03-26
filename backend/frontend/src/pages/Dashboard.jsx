@@ -5,16 +5,19 @@ import { Phone, MapPin, IndianRupee, Home, Clock } from 'lucide-react';
 const Dashboard = () => {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({ totalLeads: 0, totalProperties: 0, statusCounts: [] });
+  const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     try {
-        const [leadsRes, statsRes] = await Promise.all([
+        const [leadsRes, statsRes, agentsRes] = await Promise.all([
             fetch('/api/leads'),
-            fetch('/api/stats')
+            fetch('/api/stats'),
+            fetch('/api/agents')
         ]);
         if (leadsRes.ok) setLeads(await leadsRes.json());
         if (statsRes.ok) setStats(await statsRes.json());
+        if (agentsRes.ok) setAgents(await agentsRes.json());
     } catch (error) {
       console.error("Failed to fetch data", error);
     } finally {
@@ -36,6 +39,21 @@ const Dashboard = () => {
             body: JSON.stringify({ status: newStatus })
         });
         if (res.ok) fetchData();
+    } catch (e) { console.error(e); }
+  };
+
+  const assignLead = async (leadId, agentId) => {
+    if (!agentId) return;
+    try {
+        const res = await fetch(`/api/leads/${leadId}/assign`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agentId })
+        });
+        if (res.ok) {
+            alert('Lead assigned & WhatsApp alert sent to Agent!');
+            fetchData();
+        }
     } catch (e) { console.error(e); }
   };
 
@@ -144,10 +162,15 @@ const Dashboard = () => {
                         >
                             {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
                         </select>
-                        <div className="flex items-center gap-1.5 grayscale opacity-50 group-hover:grayscale-0 group-hover:opacity-100 transition-all">
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 ring-2 ring-indigo-500/20"></span>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tighter">Verified</span>
-                        </div>
+
+                        <select 
+                            value={lead.assignedAgent || ""}
+                            onChange={(e) => assignLead(lead._id, e.target.value)}
+                            className="bg-indigo-500/10 text-[10px] font-bold py-1.5 px-3 rounded-lg border border-indigo-500/30 outline-none text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500 transition-all cursor-pointer max-w-[120px] truncate"
+                        >
+                            <option value="" disabled>Assign Broker</option>
+                            {agents.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
+                        </select>
                     </div>
                   </motion.div>
                 ))

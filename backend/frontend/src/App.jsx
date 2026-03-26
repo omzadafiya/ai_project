@@ -6,6 +6,7 @@ import Properties from './pages/Properties';
 import LiveChat from './pages/LiveChat';
 import Agents from './pages/Agents';
 import Settings from './pages/Settings';
+import Brochure from './pages/Brochure';
 
 function App() {
   return (
@@ -39,6 +40,7 @@ function App() {
               <Route path="/chat" element={<LiveChat />} />
               <Route path="/agents" element={<Agents />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/brochure/:id" element={<Brochure />} />
             </Routes>
           </div>
         </main>
