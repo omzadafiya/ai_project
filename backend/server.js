@@ -446,6 +446,15 @@ app.post('/api/agents', async (req, res) => {
     }
 });
 
+app.put('/api/agents/:id', async (req, res) => {
+    try {
+        const updatedAgent = await Agent.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        res.json(updatedAgent);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update agent' });
+    }
+});
+
 app.delete('/api/agents/:id', async (req, res) => {
     try {
         await Agent.findByIdAndDelete(req.params.id);
