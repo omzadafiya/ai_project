@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Phone, Shield, Circle, UserPlus, Trash2, X, Plus } from 'lucide-react';
+import { Users, Phone, Shield, Circle, UserPlus, Trash2, Edit, X, Plus, Save } from 'lucide-react';
 
 const Agents = () => {
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [newAgent, setNewAgent] = useState({ name: '', phone: '', role: 'Agent', status: 'Online' });
 
   const fetchAgents = () => {
@@ -20,17 +21,32 @@ const Agents = () => {
     fetchAgents();
   }, []);
 
+  const openEditModal = (agent) => {
+    setEditingId(agent._id || agent.id);
+    setNewAgent({ name: agent.name, phone: agent.phone, role: agent.role, status: agent.status });
+    setIsModalOpen(true);
+  };
+
   const handleAddAgent = async (e) => {
     e.preventDefault();
     if (!newAgent.name || !newAgent.phone) return;
     
-    await fetch('/api/agents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newAgent)
-    });
+    if (editingId) {
+      await fetch(`/api/agents/${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAgent)
+      });
+    } else {
+      await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newAgent)
+      });
+    }
     
     setIsModalOpen(false);
+    setEditingId(null);
     setNewAgent({ name: '', phone: '', role: 'Agent', status: 'Online' });
     fetchAgents();
   };
@@ -53,7 +69,11 @@ const Agents = () => {
           <p className="text-slate-400">Manage your real estate brokers and track their active leads.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+              setEditingId(null);
+              setNewAgent({ name: '', phone: '', role: 'Agent', status: 'Online' });
+              setIsModalOpen(true);
+          }}
           className="relative z-10 bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-lg shadow-indigo-500/20"
         >
           <UserPlus size={18} /> Add New Agent
@@ -82,7 +102,7 @@ const Agents = () => {
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center font-bold text-sm shadow-inner overflow-hidden">
-                       <span className="opacity-90">{agent.name.split(' ').map(n => n[0]).join('')}</span>
+                       <span className="opacity-90">{agent.name ? agent.name.split(' ').map(n => n[0]).join('') : 'A'}</span>
                     </div>
                     <span className="font-medium text-slate-200">{agent.name}</span>
                   </div>
@@ -110,12 +130,20 @@ const Agents = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button 
-                    onClick={() => handleDelete(agent._id || agent.id)}
-                    className="p-2 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 size={16} />
-                  </button>
+                  <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => openEditModal(agent)}
+                      className="p-2 text-indigo-400/50 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(agent._id || agent.id)}
+                      className="p-2 text-rose-400/50 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -128,9 +156,9 @@ const Agents = () => {
           <div className="glass w-full max-w-md rounded-3xl border border-white/10 shadow-2xl overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-white/5">
               <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                <UserPlus size={20} className="text-indigo-400" /> Add New Broker
+                {editingId ? <><Edit size={20} className="text-amber-400"/> Edit Broker</> : <><UserPlus size={20} className="text-indigo-400" /> Add New Broker</>}
               </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-500 hover:text-white transition-colors">
+              <button onClick={() => { setIsModalOpen(false); setEditingId(null); }} className="text-slate-500 hover:text-white transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -170,7 +198,7 @@ const Agents = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Initial Status</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-1.5">Current Status</label>
                   <select 
                     value={newAgent.status} onChange={e => setNewAgent({...newAgent, status: e.target.value})}
                     className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
@@ -183,11 +211,11 @@ const Agents = () => {
               </div>
 
               <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sm font-medium text-slate-300 hover:text-white transition-colors">
+                <button type="button" onClick={() => { setIsModalOpen(false); setEditingId(null); }} className="px-5 py-2.5 text-sm font-medium text-slate-300 hover:text-white transition-colors">
                   Cancel
                 </button>
-                <button type="submit" className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-lg shadow-indigo-500/20">
-                  <Plus size={16} /> Create Agent
+                <button type="submit" className={`hover:bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-lg ${editingId ? 'bg-amber-500 shadow-amber-500/20' : 'bg-indigo-500 shadow-indigo-500/20'}`}>
+                  {editingId ? <><Save size={16}/> Save Changes</> : <><Plus size={16} /> Create Agent</>}
                 </button>
               </div>
             </form>

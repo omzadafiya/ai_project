@@ -5,6 +5,7 @@ import { Send, User, Bot, Shield, ShieldOff, MessageSquare, Terminal } from 'luc
 const LiveChat = () => {
     const [sessions, setSessions] = useState([]);
     const [selectedPhone, setSelectedPhone] = useState(null);
+    const [selectedName, setSelectedName] = useState(null);
     const [messages, setMessages] = useState([]);
     const [aiEnabled, setAiEnabled] = useState(true);
     const [input, setInput] = useState('');
@@ -88,22 +89,22 @@ const LiveChat = () => {
                     </h3>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
-                    {sessions.map(phone => (
+                    {sessions.map(sess => (
                         <button
-                            key={phone}
-                            onClick={() => setSelectedPhone(phone)}
+                            key={sess.phoneId}
+                            onClick={() => { setSelectedPhone(sess.phoneId); setSelectedName(sess.senderName || sess.phoneId); }}
                             className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all ${
-                                selectedPhone === phone 
+                                selectedPhone === sess.phoneId 
                                 ? 'bg-indigo-500/20 border border-indigo-500/30 text-white shadow-lg' 
                                 : 'text-slate-400 hover:bg-white/5 border border-transparent'
                             }`}
                         >
                             <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center font-bold text-xs">
-                                {phone.slice(-4)}
+                                {sess.senderName ? sess.senderName.substring(0, 2).toUpperCase() : sess.phoneId.slice(-4)}
                             </div>
-                            <div className="text-left">
-                                <p className="text-sm font-bold truncate">{phone}</p>
-                                <p className="text-[10px] text-slate-500 font-medium">WhatsApp Channel</p>
+                            <div className="text-left overflow-hidden flex-1">
+                                <p className="text-sm font-bold truncate">{sess.senderName || sess.phoneId}</p>
+                                <p className="text-[10px] text-slate-500 font-medium truncate">{sess.senderName ? sess.phoneId : 'WhatsApp Info Syncing...'}</p>
                             </div>
                         </button>
                     ))}
@@ -122,7 +123,7 @@ const LiveChat = () => {
                                     <User size={20} />
                                 </div>
                                 <div>
-                                    <h4 className="font-bold">{selectedPhone}</h4>
+                                    <h4 className="font-bold">{selectedName}</h4>
                                     <div className="flex items-center gap-1.5">
                                         <div className={`w-2 h-2 rounded-full ${aiEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
@@ -164,7 +165,7 @@ const LiveChat = () => {
                                             {msg.sender === 'ai' && <Bot size={12} className="opacity-70" />}
                                             {msg.sender === 'agent' && <Shield size={12} className="opacity-70" />}
                                             <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">
-                                                {msg.sender.toUpperCase()}
+                                                {msg.sender === 'user' ? (msg.senderName || selectedName) : msg.sender.toUpperCase()}
                                             </span>
                                         </div>
                                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>

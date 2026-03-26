@@ -104,7 +104,10 @@ const Dashboard = () => {
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-2 text-slate-200">
                         <Phone size={14} className="text-indigo-400" />
-                        <span className="font-mono text-sm font-semibold">{lead.phoneId}</span>
+                        <div className="flex flex-col">
+                            <span className="font-bold text-sm leading-none">{lead.senderName || lead.phoneId}</span>
+                            {lead.senderName && <span className="font-mono text-[10px] text-slate-500 mt-1">{lead.phoneId}</span>}
+                        </div>
                       </div>
                       <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium bg-black/20 px-2 py-0.5 rounded-full">
                         <Clock size={10} />

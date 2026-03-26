@@ -28,6 +28,7 @@ mongoose.connect(process.env.MONGODB_URI)
 // Mongoose Schema for Leads
 const leadSchema = new mongoose.Schema({
     phoneId: String,
+    senderName: String,
     location: String,
     budget: String,
     propertyType: String,
@@ -51,6 +52,7 @@ const Property = mongoose.model('Property', propertySchema);
 // Message Schema (for Live Chat)
 const messageSchema = new mongoose.Schema({
     phoneId: String,
+    senderName: String,
     text: String,
     sender: { type: String, enum: ['user', 'ai', 'agent'] },
     createdAt: { type: Date, default: Date.now }
@@ -67,6 +69,7 @@ const ChatSettings = mongoose.model('ChatSettings', chatSettingsSchema);
 // Chat Session Schema (for Vercel Serverless persistence)
 const sessionSchema = new mongoose.Schema({
     phoneId: String,
+    senderName: String,
     history: { type: Array, default: [] },
     updatedAt: { type: Date, default: Date.now }
 });
@@ -93,22 +96,34 @@ const Agent = mongoose.model('Agent', agentSchema);
 async function getSystemPrompt() {
     let config = await SystemConfig.findOne({ key: 'systemPrompt' });
     if (!config) {
-        const defaultPrompt = `You are a premium Real Estate AI Assistant for 11za on WhatsApp.
-CRITICAL RULES:
-1. You MUST ALWAYS output your response as a raw JSON object. NEVER output plain text.
-2. You MUST reply in the EXACT SAME LANGUAGE as the user (e.g. Hindi/Gujarati/Marathi).
+        const defaultPrompt = `=========================================================
+ROLE & CONTEXT:
+You are "Astro", an elite AI Real Estate Advisor representing 11za Realty.
+You communicate exclusively via WhatsApp. Target Audience: High-Net-Worth Individuals.
 
-Your goal is to collect 4 constraints:
-1) Preferred Location
-2) Budget
-3) Property Type (1BHK/2BHK/Villa/Commercial)
-4) Site Visit Interest (Ask them "Would you like to schedule a free site visit this week? Yes/No")
+TONE & PERSONALITY:
+- Extremely polite, professional, and empathetic. Concise yet highly informative.
+- Mirror the user's language EXACTLY (e.g., reply in pure Gujarati if they speak Gujarati).
 
-If you are STILL collecting constraints, output:
-{"complete": false, "replyMsg": "Great! And what is your budget for this property?"}
+CORE MISSION:
+Collect exactly 4 critical constraints politely, ONE STEP AT A TIME:
+1. Preferred Location (Micro-markets, specific areas)
+2. Budget Approximation (e.g., "50 Lakhs", "2 Crores", "Undecided")
+3. Property Configuration (1BHK/2BHK/Villa/Commercial/Land)
+4. Site Visit Readiness (e.g., "Would you like a VIP site tour this weekend? Yes/No")
 
-If you have COLLECTED ALL 4 constraints, STOP asking questions and output:
-{"complete": true, "location": "Surat", "budget": "10 lakh", "type": "2BHK", "siteVisit": "Yes", "replyMsg": "Perfect! Let me check our premium inventory..."}`;
+=========================================================
+OUTPUT DIRECTIVES (STRICT COMPLIANCE REQUIRED):
+You are a backend system router. You MUST output EVERY response strictly as a minified JSON object. NEVER use markdown formatting (like \`\`\`json). No conversational filler outside the JSON.
+
+SCENARIO A: STILL COLLECTING CONSTRAINTS
+If any constraints are missing:
+{"complete": false, "replyMsg": "[Your warm, localized text asking the next missing question]"}
+
+SCENARIO B: ALL 4 CONSTRAINTS COLLECTED
+Stop asking questions and output:
+{"complete": true, "location": "[Extracted Location]", "budget": "[Extracted Budget]", "type": "[Extracted Type]", "siteVisit": "[Yes/No]", "replyMsg": "[Your warm closing message]"}
+Example: {"complete": true, "location": "Vesu", "budget": "2 Cr", "type": "4BHK", "siteVisit": "Yes", "replyMsg": "Perfect. Allow me a moment to curate the finest properties for you..."}`;
         config = await new SystemConfig({ key: 'systemPrompt', value: defaultPrompt }).save();
     }
     return config.value;
@@ -141,12 +156,13 @@ app.post('/webhook', async (req, res) => {
         
         // Extract sender and message text matching 11za format
         const senderId = req.body.from || req.body.sender || "919904362053"; 
+        const senderName = (req.body.whatsapp && req.body.whatsapp.senderName) || 'Client';
         const incomingText = req.body.UserResponse || (req.body.content && req.body.content.text) || req.body.text || "";
 
         if (!incomingText) return res.status(200).send('No text found');
 
         // Log incoming message to database
-        await new Message({ phoneId: senderId, text: incomingText, sender: 'user' }).save();
+        await new Message({ phoneId: senderId, senderName, text: incomingText, sender: 'user' }).save();
 
         // Check if AI is enabled for this user (Human Takeover)
         const settings = await ChatSettings.findOneAndUpdate(
@@ -161,9 +177,13 @@ app.post('/webhook', async (req, res) => {
         }
 
         // Get or create session from MongoDB (Serverless persistent)
-        let session = await ChatSession.findOne({ phoneId: senderId });
+        let session = await ChatSession.findOneAndUpdate(
+            { phoneId: senderId },
+            { $set: { senderName, updatedAt: Date.now() } },
+            { new: true }
+        );
         if (!session) {
-            session = new ChatSession({ phoneId: senderId, history: [] });
+            session = new ChatSession({ phoneId: senderId, senderName, history: [] });
         }
         
         session.history.push({ role: 'user', content: incomingText });
@@ -179,13 +199,16 @@ app.post('/webhook', async (req, res) => {
         ];
 
         // Call Mistral API
+        let mistralKeyConfig = await SystemConfig.findOne({ key: 'mistralKey' });
+        const mistralApiKey = mistralKeyConfig && mistralKeyConfig.value ? mistralKeyConfig.value : process.env.MISTRAL_API_KEY;
+
         const response = await axios.post('https://api.mistral.ai/v1/chat/completions', {
             model: 'mistral-large-latest',
             messages: mistralMessages,
             response_format: { type: "json_object" }
         }, {
             headers: {
-                'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+                'Authorization': `Bearer ${mistralApiKey}`,
                 'Content-Type': 'application/json'
             }
         });
@@ -323,8 +346,7 @@ app.get('/api/chats/:phoneId', async (req, res) => {
 
 app.get('/api/chat-sessions', async (req, res) => {
     try {
-        // Get unique phone numbers that have messaged
-        const sessions = await Message.distinct('phoneId');
+        const sessions = await ChatSession.find({}, 'phoneId senderName updatedAt').sort({ updatedAt: -1 });
         res.json(sessions);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch sessions' });
@@ -380,6 +402,28 @@ app.put('/api/settings/prompt', async (req, res) => {
         res.json({ success: true, prompt: req.body.prompt });
     } catch (error) {
         res.status(500).json({ error: 'Failed to update prompt' });
+    }
+});
+
+app.get('/api/settings/keys', async (req, res) => {
+    try {
+        const keyConfig = await SystemConfig.findOne({ key: 'mistralKey' });
+        res.json({ mistralKey: keyConfig ? keyConfig.value : '' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed' });
+    }
+});
+
+app.put('/api/settings/keys', async (req, res) => {
+    try {
+        await SystemConfig.findOneAndUpdate(
+            { key: 'mistralKey' },
+            { value: req.body.mistralKey },
+            { upsert: true }
+        );
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed' });
     }
 });
 

@@ -3,6 +3,7 @@ import { Settings as SettingsIcon, Save, Bot, Key, Globe, LayoutDashboard } from
 
 const Settings = () => {
   const [prompt, setPrompt] = useState('');
+  const [mistralKey, setMistralKey] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('ai');
@@ -14,9 +15,15 @@ const Settings = () => {
         setPrompt(data.prompt || '');
         setLoading(false);
       });
+      
+    fetch('/api/settings/keys')
+      .then(res => res.json())
+      .then(data => {
+        setMistralKey(data.mistralKey || '');
+      });
   }, []);
 
-  const handleSave = async () => {
+  const handleSavePrompt = async () => {
     setSaving(true);
     try {
       await fetch('/api/settings/prompt', {
@@ -26,7 +33,22 @@ const Settings = () => {
       });
       alert('AI Configuration Saved Successfully!');
     } catch (e) {
-      alert('Failed to save settings.');
+      alert('Failed to save AI config.');
+    }
+    setSaving(false);
+  };
+
+  const handleSaveKey = async () => {
+    setSaving(true);
+    try {
+      await fetch('/api/settings/keys', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mistralKey })
+      });
+      alert('Mistral API Key Saved Successfully!');
+    } catch (e) {
+      alert('Failed to save API key.');
     }
     setSaving(false);
   };
@@ -77,7 +99,7 @@ const Settings = () => {
                   <div className="flex justify-between items-center bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-xl">
                     <p className="text-sm text-emerald-400 font-medium">💡 Tip: Use strict JSON rules for constraints.</p>
                     <button 
-                      onClick={handleSave}
+                      onClick={handleSavePrompt}
                       disabled={saving}
                       className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20"
                     >
@@ -88,8 +110,43 @@ const Settings = () => {
               )}
             </div>
           )}
+
+          {activeTab === 'keys' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-bold text-white mb-1">API Integrations</h3>
+                <p className="text-sm text-slate-400">Manage external connections securely via database without redeploying code.</p>
+              </div>
+              
+              <div className="space-y-4 mt-8">
+                <div>
+                  <label className="block text-sm font-medium text-slate-400 mb-1.5 flex items-center gap-2">
+                    <Key size={14}/> Mistral AI Secret Key
+                  </label>
+                  <input 
+                    type="password" 
+                    value={mistralKey} 
+                    onChange={e => setMistralKey(e.target.value)} 
+                    placeholder="sk-..." 
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-mono shadow-inner"
+                  />
+                  <p className="text-[10px] block mt-2 text-slate-500">This key will override the Vercel Enivronment variable when set.</p>
+                </div>
+
+                <div className="flex justify-end pt-4">
+                  <button 
+                    onClick={handleSaveKey} 
+                    disabled={saving} 
+                    className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
+                  >
+                    <Save size={18} /> {saving ? 'Saving...' : 'Save API Key'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           
-          {activeTab !== 'ai' && (
+          {activeTab === 'system' && (
             <div className="h-64 flex flex-col items-center justify-center text-slate-500 opacity-50 space-y-4">
               <LayoutDashboard size={48} className="text-slate-600" />
               <p>Under Construction</p>
