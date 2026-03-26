@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Phone, MapPin, IndianRupee, Home, Clock, MessageSquare, Plus, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Phone, MapPin, IndianRupee, Home, Clock, MessageSquare, LayoutDashboard } from 'lucide-react';
 
 const Dashboard = () => {
   const [leads, setLeads] = useState([]);
@@ -19,14 +20,16 @@ const Dashboard = () => {
         if (statsRes.ok) setStats(await statsRes.json());
         if (agentsRes.ok) setAgents(await agentsRes.json());
     } catch (error) {
-      console.error("Failed to fetch", error);
+      console.error("Failed to fetch data", error);
     } finally {
-      setLoading(false);
+      if(loading) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   const updateLeadStatus = async (id, newStatus) => {
@@ -49,124 +52,170 @@ const Dashboard = () => {
             body: JSON.stringify({ agentId })
         });
         if (res.ok) {
-            toast.success('Assigned and Agent Alerted');
+            toast.success('Lead assigned & WhatsApp alert sent to Agent!');
             fetchData();
         }
-    } catch (e) { toast.error('Assignment Failed'); }
+    } catch (e) {
+        toast.error('Failed to assign lead.');
+        console.error(e);
+    }
   };
 
-  const triggerNurture = async () => {
-      const tid = toast.loading('Dispatching Auto-Followups...');
-      try {
-          const res = await fetch('/api/campaigns/followup', { method: 'POST' });
-          const data = await res.json();
-          if (res.ok) toast.success(`Alerts sent to ${data.count} VIP leads`, { id: tid });
-          else throw new Error();
-      } catch { toast.error('Failed to dispatch campaign', { id: tid }); }
-  };
-
-  const statusOptions = [
-    { id: 'New', title: 'New Hook', color: 'text-blue-400' },
-    { id: 'Qualified', title: 'Qualified', color: 'text-indigo-400' },
-    { id: 'Follow Up', title: 'Follow Up', color: 'text-amber-400' },
-    { id: 'Site Visit', title: 'Site Visit', color: 'text-emerald-400' },
-    { id: 'Closed', title: 'Closed Won', color: 'text-zinc-400' }
+  const columns = [
+    { id: 'New', title: 'New Inquiries', icon: '📥', color: 'border-blue-500/20 bg-blue-500/[0.02]', headerColor: 'text-blue-400' },
+    { id: 'Qualified', title: 'AI Qualified', icon: '✨', color: 'border-indigo-500/30 bg-indigo-500/[0.03]', headerColor: 'text-indigo-400' },
+    { id: 'Contacted', title: 'Contacted', icon: '🤝', color: 'border-amber-500/20 bg-amber-500/[0.02]', headerColor: 'text-amber-400' },
+    { id: 'Closed', title: 'Closed Won', icon: '🎉', color: 'border-emerald-500/20 bg-emerald-500/[0.02]', headerColor: 'text-emerald-400' },
   ];
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-10">
-      
-      {/* Sleek V6 Header */}
-      <header className="flex items-end justify-between border-b border-[#1a1a1a] pb-6">
-          <div>
-              <h1 className="text-2xl font-semibold text-zinc-100 tracking-tight mb-1">Command Center</h1>
-              <p className="text-sm text-zinc-500 font-medium">Real-time WhatsApp pipeline telemetry.</p>
-          </div>
-          <button 
-              onClick={triggerNurture}
-              className="px-4 py-2 bg-zinc-100 text-zinc-900 hover:bg-white text-sm font-semibold rounded-md flex items-center gap-2 transition-all"
-          >
-              <MessageSquare size={14} /> Drip Sequence
-          </button>
-      </header>
+    <div className="space-y-8">
+      {/* Dashboard Global Header With Follow-Up Trigger */}
+      <div className="flex justify-between items-center bg-gradient-to-r from-slate-900 to-indigo-900/40 p-6 rounded-3xl border border-white/5 relative overflow-hidden">
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-indigo-500/20 blur-3xl rounded-full"></div>
+        <div className="relative z-10">
+          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
+             <LayoutDashboard className="text-indigo-400" /> Command Center
+          </h1>
+          <p className="text-slate-400">Monitor unified real estate leads from WhatsApp.</p>
+        </div>
+        <div className="relative z-10 flex gap-3">
+            <button 
+                onClick={async () => {
+                    const toastId = toast.loading('Dispatching AI Follow-ups...');
+                    try {
+                        const res = await fetch('/api/campaigns/followup', { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) toast.success(`Sent follow-ups to ${data.count} VIP leads!`, { id: toastId });
+                        else throw new Error();
+                    } catch { toast.error('Failed to trigger campaign', { id: toastId }); }
+                }}
+                className="bg-indigo-500 hover:bg-indigo-600 px-5 py-2.5 text-white rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20"
+            >
+                <MessageSquare size={16} /> Nurture Leads
+            </button>
+        </div>
+      </div>
 
-      {/* V6 Minimalist Stats Bar */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Analytics Bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
-            { label: 'Total Inflow', value: stats.totalLeads },
-            { label: 'Live Inventory', value: stats.totalProperties },
-            { label: 'Active Brokers', value: agents.length },
-            { label: 'Conversion Rate', value: '18%' }
-        ].map((s, i) => (
-            <div key={i} className="bg-[#050505] p-5 rounded-xl border border-[#1a1a1a] flex flex-col justify-between">
-                <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">{s.label}</span>
-                <span className="text-3xl font-bold text-zinc-100 mt-2 tracking-tight">{s.value}</span>
+            { label: 'Total Leads', value: stats.totalLeads, color: 'text-indigo-400', icon: '💎' },
+            { label: 'Live Inventory', value: stats.totalProperties, color: 'text-emerald-400', icon: '🏡' },
+            { label: 'AI Efficiency', value: '98%', color: 'text-purple-400', icon: '⚡' }
+        ].map((item) => (
+            <div key={item.label} className="glass rounded-2xl p-6 border border-white/5 flex items-center justify-between group hover:border-white/20 transition-all">
+                <div>
+                   <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">{item.label}</p>
+                   <p className={`text-3xl font-bold ${item.color}`}>{item.value}</p>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-2xl shadow-inner group-hover:scale-110 transition-transform">
+                   {item.icon}
+                </div>
             </div>
         ))}
       </div>
 
-      {/* Unified CRM Lead Board */}
-      <div className="border border-[#1a1a1a] rounded-xl overflow-hidden bg-[#050505]">
-          <div className="px-6 py-4 border-b border-[#1a1a1a] bg-[#0A0A0A]">
-              <h2 className="text-sm font-semibold text-zinc-200">Active CRM Pipeline</h2>
+      <div className="flex gap-6 h-full overflow-x-auto pb-4 custom-scrollbar">
+      {columns.map(col => (
+        <div key={col.id} className={`flex flex-col min-w-[320px] w-[320px] rounded-2xl glass ${col.color} border shadow-xl`}>
+          <div className="p-4 border-b border-white/5 flex items-center justify-between bg-black/10 rounded-t-2xl">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{col.icon}</span>
+              <h3 className={`font-semibold tracking-wide ${col.headerColor}`}>{col.title}</h3>
+            </div>
+            <span className="bg-white/10 text-xs px-2.5 py-1 rounded-full font-bold shadow-inner">
+              {leads.filter(l => l.status === col.id).length}
+            </span>
           </div>
-          
-          <table className="w-full text-left border-collapse">
-              <thead className="bg-[#0A0A0A]">
-                  <tr className="border-b border-[#1a1a1a]">
-                      <th className="px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Client Identity</th>
-                      <th className="px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Parameters</th>
-                      <th className="px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Target Value</th>
-                      <th className="px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Stage</th>
-                      <th className="px-6 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right">Routing</th>
-                  </tr>
-              </thead>
-              <tbody className="divide-y divide-[#1a1a1a]">
-                  {loading ? (
-                       <tr><td colSpan="5" className="p-8 text-center text-sm text-zinc-600">Syncing telemetry...</td></tr>
-                  ) : leads.map(lead => (
-                      <tr key={lead._id} className="hover:bg-[#0A0A0A] transition-colors">
-                          <td className="px-6 py-4">
-                              <div className="flex flex-col">
-                                  <span className="text-sm font-semibold text-zinc-200">{lead.senderName || lead.phoneId}</span>
-                                  {lead.senderName && <span className="text-[10px] font-mono text-zinc-600 mt-0.5">{lead.phoneId}</span>}
-                              </div>
-                          </td>
-                          <td className="px-6 py-4">
-                              <div className="flex items-center gap-3 text-sm text-zinc-400">
-                                  <span className="flex items-center gap-1"><MapPin size={12}/> {lead.location}</span>
-                                  <span className="w-1 h-1 rounded-full bg-zinc-700"></span>
-                                  <span className="flex items-center gap-1"><Home size={12}/> {lead.propertyType}</span>
-                              </div>
-                          </td>
-                          <td className="px-6 py-4">
-                              <span className="text-sm font-semibold text-emerald-400 flex items-center gap-1">
-                                  <IndianRupee size={12}/> {lead.budget}
-                              </span>
-                          </td>
-                          <td className="px-6 py-4">
-                              <select 
-                                  value={lead.status}
-                                  onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
-                                  className="bg-transparent text-xs font-semibold py-1 px-0 border-none outline-none text-zinc-300 focus:ring-0 cursor-pointer appearance-none"
-                              >
-                                  {statusOptions.map(c => <option key={c.id} value={c.id} className="bg-[#111]">{c.title}</option>)}
-                              </select>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                              <select 
-                                  value={lead.assignedAgent || ""}
-                                  onChange={(e) => assignLead(lead._id, e.target.value)}
-                                  className="bg-[#111] border border-[#222] text-xs font-medium py-1.5 px-3 rounded-md outline-none text-zinc-300 hover:border-zinc-500 transition-colors cursor-pointer w-[140px]"
-                              >
-                                  <option value="" disabled>Unassigned...</option>
-                                  {agents.map(a => <option key={a._id} value={a._id} className="bg-[#111]">{a.name.split(' ')[0]}</option>)}
-                              </select>
-                          </td>
-                      </tr>
+
+          <div className="flex-1 p-4 overflow-y-auto space-y-4">
+            <AnimatePresence>
+              {loading && leads.length === 0 ? (
+                <div className="animate-pulse space-y-4 pt-2">
+                  {[1, 2].map(i => (
+                    <div key={i} className="h-32 bg-white/5 rounded-xl border border-white/5"></div>
                   ))}
-              </tbody>
-          </table>
+                </div>
+              ) : (
+                leads.filter(l => l.status === col.id).map(lead => (
+                  <motion.div
+                    key={lead._id}
+                    layoutId={lead._id}
+                    initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    className="bg-slate-900/80 backdrop-blur-sm border border-white/10 p-5 rounded-xl shadow-lg hover:border-indigo-500/40 hover:shadow-indigo-500/5 transition-all group cursor-pointer relative overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-indigo-500/10 to-transparent rounded-bl-full pointer-events-none opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                    
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2 text-slate-200">
+                        <Phone size={14} className="text-indigo-400" />
+                        <div className="flex flex-col">
+                            <span className="font-bold text-sm leading-none">{lead.senderName || lead.phoneId}</span>
+                            {lead.senderName && <span className="font-mono text-[10px] text-slate-500 mt-1">{lead.phoneId}</span>}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 flex items-center gap-1 font-medium bg-black/20 px-2 py-0.5 rounded-full">
+                        <Clock size={10} />
+                        {new Date(lead.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {lead.location && (
+                        <div className="flex items-start gap-2.5 text-sm text-slate-300">
+                          <MapPin size={16} className="mt-0.5 text-purple-400 opacity-80" />
+                          <span className="font-medium line-clamp-1 leading-snug">{lead.location}</span>
+                        </div>
+                      )}
+                      {lead.budget && (
+                        <div className="flex items-center gap-2.5 text-sm">
+                          <IndianRupee size={16} className="text-purple-400 opacity-80" />
+                          <span className="font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">{lead.budget}</span>
+                        </div>
+                      )}
+                      {lead.propertyType && (
+                        <div className="flex items-center gap-2.5 text-sm text-slate-300">
+                          <Home size={16} className="text-purple-400 opacity-80" />
+                          <span className="bg-white/10 px-2.5 py-0.5 rounded-md text-xs font-semibold">{lead.propertyType}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-5 pt-4 border-t border-white/5 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <select 
+                            value={lead.status}
+                            onChange={(e) => updateLeadStatus(lead._id, e.target.value)}
+                            className="bg-black/40 text-[10px] font-bold py-1.5 px-3 rounded-lg border border-white/10 outline-none text-slate-300 hover:border-indigo-500 transition-all cursor-pointer"
+                        >
+                            {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                        </select>
+
+                        <select 
+                            value={lead.assignedAgent || ""}
+                            onChange={(e) => assignLead(lead._id, e.target.value)}
+                            className="bg-indigo-500/10 text-[10px] font-bold py-1.5 px-3 rounded-lg border border-indigo-500/30 outline-none text-indigo-300 hover:bg-indigo-500/20 hover:border-indigo-500 transition-all cursor-pointer max-w-[120px] truncate"
+                        >
+                            <option value="" disabled>Assign Broker</option>
+                            {agents.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
+                        </select>
+                    </div>
+                  </motion.div>
+                ))
+              )}
+            </AnimatePresence>
+            
+            {leads.filter(l => l.status === col.id).length === 0 && !loading && (
+              <div className="h-24 border-2 border-dashed border-white/5 rounded-xl flex items-center justify-center text-slate-500 text-sm font-medium">
+                No leads yet
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
       </div>
     </div>
   );

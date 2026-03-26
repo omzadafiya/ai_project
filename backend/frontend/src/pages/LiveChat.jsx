@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Send, User, Bot, Shield, ShieldOff, MessageSquare, Terminal } from 'lucide-react';
 
 const LiveChat = () => {
@@ -79,55 +80,54 @@ const LiveChat = () => {
     };
 
     return (
-        <div className="flex h-full gap-6 max-h-[85vh]">
-            {/* Minimalist Sessions Panel */}
-            <div className="w-[300px] bg-[#050505] rounded-xl border border-[#1a1a1a] flex flex-col overflow-hidden">
-                <div className="p-5 border-b border-[#1a1a1a] bg-[#0A0A0A]">
-                    <h3 className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
-                        Active Tunnels
+        <div className="flex gap-6 h-[calc(100vh-160px)]">
+            <div className="w-80 glass rounded-3xl flex flex-col border border-white/5 overflow-hidden shadow-2xl">
+                <div className="p-6 border-b border-white/5 bg-black/10">
+                    <h3 className="font-bold flex items-center gap-2">
+                        <MessageSquare size={18} className="text-indigo-500" />
+                        Active Sessions
                     </h3>
                 </div>
-                <div className="flex-1 overflow-y-auto divide-y divide-[#1a1a1a] custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 space-y-2 custom-scrollbar">
                     {sessions.map(sess => (
                         <button
                             key={sess.phoneId}
                             onClick={() => { setSelectedPhone(sess.phoneId); setSelectedName(sess.senderName || sess.phoneId); }}
-                            className={`w-full flex items-center gap-3 p-4 transition-all text-left ${
+                            className={`w-full flex items-center gap-3 p-4 rounded-2xl transition-all ${
                                 selectedPhone === sess.phoneId 
-                                ? 'bg-[#111] border-l-2 border-zinc-100' 
-                                : 'hover:bg-[#0A0A0A] border-l-2 border-transparent text-zinc-500'
+                                ? 'bg-indigo-500/20 border border-indigo-500/30 text-white shadow-lg' 
+                                : 'text-slate-400 hover:bg-white/5 border border-transparent'
                             }`}
                         >
-                            <div className="w-9 h-9 rounded bg-[#1a1a1a] flex items-center justify-center font-semibold text-xs text-zinc-100 border border-[#222]">
+                            <div className="w-10 h-10 rounded-full bg-slate-800 border border-white/10 flex items-center justify-center font-bold text-xs">
                                 {sess.senderName ? sess.senderName.substring(0, 2).toUpperCase() : sess.phoneId.slice(-4)}
                             </div>
-                            <div className="flex-1 overflow-hidden">
-                                <p className={`text-sm font-semibold truncate ${selectedPhone === sess.phoneId ? 'text-zinc-100' : 'text-zinc-400'}`}>
-                                    {sess.senderName || sess.phoneId}
-                                </p>
-                                <p className="text-[10px] text-zinc-600 font-mono truncate">{sess.phoneId}</p>
+                            <div className="text-left overflow-hidden flex-1">
+                                <p className="text-sm font-bold truncate">{sess.senderName || sess.phoneId}</p>
+                                <p className="text-[10px] text-slate-500 font-medium truncate">{sess.senderName ? sess.phoneId : 'WhatsApp Info Syncing...'}</p>
                             </div>
                         </button>
                     ))}
                     {sessions.length === 0 && !loading && (
-                        <div className="text-center py-10 text-zinc-600 text-sm">No active tunnels</div>
+                        <div className="text-center py-10 text-slate-500 text-sm italic">No active chats</div>
                     )}
                 </div>
             </div>
 
-            {/* Minimalist Chat Canvas */}
-            <div className="flex-1 bg-[#050505] rounded-xl border border-[#1a1a1a] flex flex-col overflow-hidden relative">
+            <div className="flex-1 glass rounded-3xl border border-white/5 flex flex-col overflow-hidden shadow-2xl relative">
                 {selectedPhone ? (
                     <>
-                        {/* Header */}
-                        <div className="p-5 border-b border-[#1a1a1a] bg-[#0A0A0A] flex items-center justify-between">
+                        <div className="p-6 border-b border-white/5 bg-black/10 flex items-center justify-between">
                             <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-indigo-500/20 flex items-center justify-center text-indigo-400 border border-indigo-500/30">
+                                    <User size={20} />
+                                </div>
                                 <div>
-                                    <h4 className="font-semibold text-sm text-zinc-100 tracking-tight">{selectedName}</h4>
-                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${aiEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-600'}`}></div>
-                                        <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-none">
-                                            {aiEnabled ? 'AI Automation Layer Active' : 'Human Override Active'}
+                                    <h4 className="font-bold">{selectedName}</h4>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-2 h-2 rounded-full ${aiEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                                            {aiEnabled ? 'AI Automation Active' : 'Human Control Enabled'}
                                         </span>
                                     </div>
                                 </div>
@@ -135,69 +135,84 @@ const LiveChat = () => {
                             
                             <button 
                                 onClick={toggleAI}
-                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all border ${
+                                className={`flex items-center gap-2 px-4 py-2 rounded-xl border font-bold text-xs transition-all ${
                                     aiEnabled 
-                                    ? 'bg-transparent border-[#222] text-zinc-400 hover:text-white hover:border-zinc-500' 
-                                    : 'bg-zinc-100 text-zinc-900 hover:bg-white border-transparent'
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20' 
+                                    : 'bg-amber-500/10 border-amber-500/20 text-amber-400 hover:bg-amber-500/20 shadow-lg shadow-amber-500/5'
                                 }`}
                             >
-                                {aiEnabled ? 'Pause AI' : 'Resume AI'}
+                                {aiEnabled ? <Shield size={14} /> : <ShieldOff size={14} />}
+                                {aiEnabled ? 'PAUSE AI' : 'RESUME AI'}
                             </button>
                         </div>
 
-                        {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#0A0A0A]">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-black/5">
                             {messages.map((msg, i) => (
-                                <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-start' : 'justify-end'}`}>
-                                    <div className={`max-w-[70%] px-4 py-3 text-sm leading-relaxed ${
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    key={i}
+                                    className={`flex ${msg.sender === 'user' ? 'justify-start' : 'justify-end'}`}
+                                >
+                                    <div className={`max-w-[75%] px-5 py-3.5 rounded-3xl shadow-lg relative ${
                                         msg.sender === 'user' 
-                                        ? 'bg-[#111] border border-[#222] text-zinc-300 rounded-2xl rounded-tl-sm' 
-                                        : 'bg-transparent border border-[#222] text-zinc-400 rounded-2xl rounded-tr-sm'
+                                        ? 'bg-slate-800 border border-white/5 rounded-tl-none' 
+                                        : msg.sender === 'ai'
+                                            ? 'bg-indigo-600/20 border border-indigo-500/20 text-white rounded-tr-none shadow-indigo-500/5'
+                                            : 'bg-purple-600/20 border border-purple-500/20 text-white rounded-tr-none'
                                     }`}>
-                                        <div className="flex items-center gap-1.5 mb-1.5 text-[10px] font-bold uppercase tracking-widest text-zinc-600">
-                                            {msg.sender === 'user' ? (msg.senderName || selectedName) : 'Astro AI'}
+                                        <div className="flex items-center gap-1.5 mb-1.5">
+                                            {msg.sender === 'ai' && <Bot size={12} className="opacity-70" />}
+                                            {msg.sender === 'agent' && <Shield size={12} className="opacity-70" />}
+                                            <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">
+                                                {msg.sender === 'user' ? (msg.senderName || selectedName) : msg.sender.toUpperCase()}
+                                            </span>
                                         </div>
-                                        <p className="whitespace-pre-wrap">{msg.text}</p>
-                                        <p className="text-[9px] font-mono text-right mt-2 text-zinc-700">
+                                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+                                        <p className="text-[10px] text-right mt-2 opacity-30 font-medium">
                                             {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </p>
                                     </div>
-                                </div>
+                                </motion.div>
                             ))}
                             <div ref={chatEndRef} />
                         </div>
 
-                        {/* Input Box */}
-                        <form onSubmit={handleSend} className="p-4 bg-[#0A0A0A] border-t border-[#1a1a1a]">
-                            <div className="relative flex items-center">
-                                <input 
-                                    value={input}
-                                    onChange={(e) => setInput(e.target.value)}
-                                    className="flex-1 bg-[#111] border border-[#222] rounded-lg pl-4 pr-12 py-3 outline-none focus:border-zinc-500 transition-colors text-sm text-zinc-200 placeholder:text-zinc-600 disabled:opacity-50" 
-                                    placeholder="Execute manual override..."
-                                    disabled={aiEnabled}
-                                />
-                                <button 
-                                    type="submit"
-                                    disabled={aiEnabled || !input.trim()}
-                                    className="absolute right-2 p-1.5 rounded-md text-zinc-500 hover:text-zinc-100 hover:bg-[#222] disabled:opacity-50 disabled:hover:bg-transparent transition-colors"
-                                >
-                                    <Send size={16} />
-                                </button>
-                            </div>
+                        <form onSubmit={handleSend} className="p-6 bg-black/20 border-t border-white/5 flex gap-3">
+                            <input 
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 outline-none focus:border-indigo-500/50 transition-all text-sm placeholder:text-slate-600 font-medium" 
+                                placeholder="Type a manual response..."
+                                disabled={aiEnabled}
+                            />
+                            <button 
+                                type="submit"
+                                disabled={aiEnabled || !input.trim()}
+                                className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-xl active:scale-90 ${
+                                    aiEnabled || !input.trim() 
+                                    ? 'bg-white/5 text-slate-600 cursor-not-allowed' 
+                                    : 'bg-indigo-600 text-white shadow-indigo-500/20 hover:shadow-indigo-500/40'
+                                }`}
+                            >
+                                <Send size={22} />
+                            </button>
                         </form>
                         
                         {aiEnabled && (
-                            <div className="absolute bottom-20 left-1/2 -translate-x-1/2 bg-[#111] border border-[#222] px-4 py-2 rounded-full text-[10px] font-bold text-zinc-500 uppercase tracking-widest flex items-center gap-2 pointer-events-none">
-                                <Terminal size={12} className="text-zinc-600" />
-                                AI Active Override Blocked
+                            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-slate-900/90 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full text-[10px] font-bold text-slate-400 flex items-center gap-2 pointer-events-none shadow-2xl">
+                                <Terminal size={12} className="text-indigo-500" />
+                                AI IS CURRENTLY HANDLING THIS CONVERSATION
                             </div>
                         )}
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-zinc-700">
-                        <MessageSquare size={32} className="mb-4 opacity-50" />
-                        <p className="text-sm font-semibold">Select a tunnel to monitor feed</p>
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-500 opacity-50">
+                        <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-6">
+                            <MessageSquare size={40} />
+                        </div>
+                        <p className="text-lg font-bold">Select a session to start monitoring</p>
+                        <p className="text-sm">Real-time WhatsApp messages will appear here.</p>
                     </div>
                 )}
             </div>
