@@ -79,6 +79,17 @@ const configSchema = new mongoose.Schema({
 });
 const SystemConfig = mongoose.model('SystemConfig', configSchema);
 
+// Agent Schema
+const agentSchema = new mongoose.Schema({
+    name: String,
+    phone: String,
+    role: { type: String, default: 'Agent' },
+    status: { type: String, default: 'Offline' },
+    leads: { type: Number, default: 0 },
+    createdAt: { type: Date, default: Date.now }
+});
+const Agent = mongoose.model('Agent', agentSchema);
+
 async function getSystemPrompt() {
     let config = await SystemConfig.findOne({ key: 'systemPrompt' });
     if (!config) {
@@ -373,12 +384,31 @@ app.put('/api/settings/prompt', async (req, res) => {
 });
 
 app.get('/api/agents', async (req, res) => {
-    // Mock agents for the UI
-    res.json([
-        { id: 1, name: 'Om Zadafiya', role: 'Admin', status: 'Online', phone: '+91 9904843058', leads: 42 },
-        { id: 2, name: 'Rahul Sharma', role: 'Senior Broker', status: 'In Meeting', phone: '+91 9876543210', leads: 15 },
-        { id: 3, name: 'Priya Desai', role: 'Agent', status: 'Offline', phone: '+91 9876543211', leads: 8 }
-    ]);
+    try {
+        const agents = await Agent.find().sort({ createdAt: -1 });
+        res.json(agents);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch agents' });
+    }
+});
+
+app.post('/api/agents', async (req, res) => {
+    try {
+        const newAgent = new Agent(req.body);
+        await newAgent.save();
+        res.json(newAgent);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to add agent' });
+    }
+});
+
+app.delete('/api/agents/:id', async (req, res) => {
+    try {
+        await Agent.findByIdAndDelete(req.params.id);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete agent' });
+    }
 });
 
 // React SPA Fallback Route
