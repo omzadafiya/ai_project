@@ -4,6 +4,8 @@ import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Properties from './pages/Properties';
 import LiveChat from './pages/LiveChat';
+import Agents from './pages/Agents';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -35,6 +37,8 @@ function App() {
               <Route path="/" element={<Dashboard />} />
               <Route path="/properties" element={<Properties />} />
               <Route path="/chat" element={<LiveChat />} />
+              <Route path="/agents" element={<Agents />} />
+              <Route path="/settings" element={<Settings />} />
             </Routes>
           </div>
         </main>

@@ -47,7 +47,7 @@ const Sidebar = () => {
             <div className="w-5 h-5 rounded-md bg-white/10 flex items-center justify-center">
                <img src="https://www.gstatic.com/lamda/images/sparkle_resting_v2_darkmode_2bdb7df2724e450073ede.gif" alt="Gemini" className="w-3 h-3" />
             </div>
-            <span className="text-sm font-bold text-white/90">Gemini 2.5 Pro</span>
+            <span className="text-sm font-bold text-white/90">Mistral AI</span>
           </div>
           <p className="text-[10px] text-emerald-400 mt-2 font-semibold">Ready to Match Properties</p>
         </div>

@@ -72,20 +72,36 @@ const sessionSchema = new mongoose.Schema({
 });
 const ChatSession = mongoose.model('ChatSession', sessionSchema);
 
-const systemPrompt = `You are an expert Real Estate Assistant working for 11za Real Estate on WhatsApp.
-Your goal is to collect exactly 3 pieces of information to qualify them:
+// Global System Config (for dynamic Prompts)
+const configSchema = new mongoose.Schema({
+    key: String,
+    value: String
+});
+const SystemConfig = mongoose.model('SystemConfig', configSchema);
+
+async function getSystemPrompt() {
+    let config = await SystemConfig.findOne({ key: 'systemPrompt' });
+    if (!config) {
+        const defaultPrompt = `You are a premium Real Estate AI Assistant for 11za on WhatsApp.
+CRITICAL RULES:
+1. You MUST ALWAYS output your response as a raw JSON object. NEVER output plain text.
+2. You MUST reply in the EXACT SAME LANGUAGE as the user (e.g. Hindi/Gujarati/Marathi).
+
+Your goal is to collect 4 constraints:
 1) Preferred Location
 2) Budget
 3) Property Type (1BHK/2BHK/Villa/Commercial)
+4) Site Visit Interest (Ask them "Would you like to schedule a free site visit this week? Yes/No")
 
-CRITICAL RULE: You MUST output EVERY SINGLE response as a raw JSON object. NEVER output plain text.
-Do NOT wrap the JSON in markdown blocks (like \`\`\`json). Just the raw JSON string.
-
-If you are STILL asking questions to collect the 3 constraints, use this JSON format:
+If you are STILL collecting constraints, output:
 {"complete": false, "replyMsg": "Great! And what is your budget for this property?"}
 
-If you have COLLECTED ALL 3 constraints, you MUST stop asking questions and use this JSON format:
-{"complete": true, "location": "Surat", "budget": "10 lakh", "type": "2BHK", "replyMsg": "Thank you! Our agent will contact you shortly with the best properties."}`;
+If you have COLLECTED ALL 4 constraints, STOP asking questions and output:
+{"complete": true, "location": "Surat", "budget": "10 lakh", "type": "2BHK", "siteVisit": "Yes", "replyMsg": "Perfect! Let me check our premium inventory..."}`;
+        config = await new SystemConfig({ key: 'systemPrompt', value: defaultPrompt }).save();
+    }
+    return config.value;
+}
 
 // 11za Send Message API
 async function sendWhatsAppMessage(to, text, sender = 'ai') {
@@ -142,8 +158,9 @@ app.post('/webhook', async (req, res) => {
         session.history.push({ role: 'user', content: incomingText });
 
         // Format history for Mistral API, supporting both old Gemini and new formats
+        const currentSystemPrompt = await getSystemPrompt();
         const mistralMessages = [
-            { role: 'system', content: systemPrompt },
+            { role: 'system', content: currentSystemPrompt },
             ...session.history.map(msg => ({
                 role: (msg.role === 'model' || msg.role === 'assistant') ? 'assistant' : 'user',
                 content: msg.parts ? msg.parts[0].text : (msg.content || '')
@@ -186,8 +203,8 @@ app.post('/webhook', async (req, res) => {
 
                 let finalReply = data.replyMsg;
                 if (matches.length > 0) {
-                    const matchText = matches.map(p => `🏠 ${p.title} - ${p.price}\n📍 ${p.location}`).join('\n\n');
-                    finalReply = `Perfect! I found some properties matching your requirements in ${data.location}:\n\n${matchText}\n\nOur agent will contact you for more details!`;
+                    const matchText = matches.map(p => `*🏠 ${p.title}*\n*💰 Price:* ${p.price}\n*📍 Location:* ${p.location}\n*📝 Details:* ${p.description || 'Premium property ready to move in.'}\n*🖼️ View Details:* ${p.imageUrl || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=600'}`).join('\n\n------------------\n\n');
+                    finalReply = `${data.replyMsg}\n\nHere are the top matches for you in *${data.location}*:\n\n${matchText}\n\nOur agent will contact you shortly ${data.siteVisit === 'Yes' || data.siteVisit === 'yes' ? 'to confirm your site visit slot!' : 'for more details!'}`;
                 }
 
                 // Send final message and clear session
@@ -330,6 +347,38 @@ app.get('/api/chat/status/:phoneId', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: 'Failed to get AI status' });
     }
+});
+
+// --- V2 Dashboard APIs ---
+app.get('/api/settings/prompt', async (req, res) => {
+    try {
+        const prompt = await getSystemPrompt();
+        res.json({ prompt });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch prompt' });
+    }
+});
+
+app.put('/api/settings/prompt', async (req, res) => {
+    try {
+        await SystemConfig.findOneAndUpdate(
+            { key: 'systemPrompt' },
+            { value: req.body.prompt },
+            { upsert: true }
+        );
+        res.json({ success: true, prompt: req.body.prompt });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update prompt' });
+    }
+});
+
+app.get('/api/agents', async (req, res) => {
+    // Mock agents for the UI
+    res.json([
+        { id: 1, name: 'Om Zadafiya', role: 'Admin', status: 'Online', phone: '+91 9904843058', leads: 42 },
+        { id: 2, name: 'Rahul Sharma', role: 'Senior Broker', status: 'In Meeting', phone: '+91 9876543210', leads: 15 },
+        { id: 3, name: 'Priya Desai', role: 'Agent', status: 'Offline', phone: '+91 9876543211', leads: 8 }
+    ]);
 });
 
 // React SPA Fallback Route
