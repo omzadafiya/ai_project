@@ -7,18 +7,21 @@ const Dashboard = () => {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({ totalLeads: 0, totalProperties: 0, statusCounts: [] });
   const [agents, setAgents] = useState([]);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     try {
-        const [leadsRes, statsRes, agentsRes] = await Promise.all([
+        const [leadsRes, statsRes, agentsRes, analyticsRes] = await Promise.all([
             fetch('/api/leads'),
             fetch('/api/stats'),
-            fetch('/api/agents')
+            fetch('/api/agents'),
+            fetch('/api/analytics')
         ]);
         if (leadsRes.ok) setLeads(await leadsRes.json());
         if (statsRes.ok) setStats(await statsRes.json());
         if (agentsRes.ok) setAgents(await agentsRes.json());
+        if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
     } catch (error) {
       console.error("Failed to fetch data", error);
     } finally {
@@ -217,6 +220,96 @@ const Dashboard = () => {
         </div>
       ))}
       </div>
+
+      {/* V7 Analytics Section */}
+      {analytics && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">📊 Analytics Engine</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Conversion Funnel */}
+            <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">🔽 Conversion Funnel</h3>
+              <div className="space-y-3">
+                {(analytics.funnel || []).map(item => {
+                  const maxCount = Math.max(...(analytics.funnel || []).map(f => f.count), 1);
+                  const pct = Math.round((item.count / maxCount) * 100);
+                  const colors = { New: 'bg-blue-500', Qualified: 'bg-indigo-500', Contacted: 'bg-amber-500', 'Follow Up': 'bg-orange-500', 'Site Visit': 'bg-violet-500', Closed: 'bg-emerald-500' };
+                  return (
+                    <div key={item._id}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-slate-400 font-medium">{item._id || 'Unknown'}</span>
+                        <span className="text-slate-300 font-bold">{item.count}</span>
+                      </div>
+                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${colors[item._id] || 'bg-slate-500'} transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Agent Leaderboard */}
+            <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">🏆 Agent Leaderboard</h3>
+              <div className="space-y-3">
+                {(analytics.agentLeaderboard || []).length === 0 ? (
+                  <p className="text-slate-600 text-xs text-center py-4">Assign leads to agents to see rankings</p>
+                ) : (analytics.agentLeaderboard || []).map((a, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <span className="text-lg w-6 text-center">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i+1}.`}</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-200">{a.agentName || 'Unassigned'}</p>
+                    </div>
+                    <span className="text-indigo-400 font-bold text-sm">{a.leadCount} leads</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top Locations */}
+            <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">📍 Hot Markets</h3>
+              <div className="space-y-3">
+                {(analytics.topLocations || []).length === 0 ? (
+                  <p className="text-slate-600 text-xs text-center py-4">No location data yet</p>
+                ) : (analytics.topLocations || []).map((loc, i) => {
+                  const maxC = Math.max(...(analytics.topLocations || []).map(l => l.count), 1);
+                  return (
+                    <div key={i}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span className="text-slate-400 font-medium">{loc._id}</span>
+                        <span className="text-emerald-400 font-bold">{loc.count} leads</span>
+                      </div>
+                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500/70 rounded-full transition-all" style={{ width: `${Math.round((loc.count/maxC)*100)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Property Type Distribution */}
+          {(analytics.propertyTypeDist || []).length > 0 && (
+            <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-5">
+              <h3 className="text-sm font-bold text-slate-300 mb-4">🏠 Property Type Demand</h3>
+              <div className="flex flex-wrap gap-3">
+                {(analytics.propertyTypeDist || []).map((pt, i) => {
+                  const colors = ['bg-blue-500/20 text-blue-300 border-blue-500/20','bg-indigo-500/20 text-indigo-300 border-indigo-500/20','bg-violet-500/20 text-violet-300 border-violet-500/20','bg-amber-500/20 text-amber-300 border-amber-500/20','bg-emerald-500/20 text-emerald-300 border-emerald-500/20'];
+                  return (
+                    <div key={i} className={`px-4 py-2 rounded-xl border text-xs font-bold ${colors[i % colors.length]}`}>
+                      {pt._id} <span className="opacity-60">×{pt.count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
