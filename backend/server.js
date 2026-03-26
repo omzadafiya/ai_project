@@ -68,8 +68,13 @@ const chatSettingsSchema = new mongoose.Schema({
 });
 const ChatSettings = mongoose.model('ChatSettings', chatSettingsSchema);
 
-// In-memory conversation state (phone -> { history: [] })
-const userSessions = new Map();
+// Chat Session Schema (for Vercel Serverless persistence)
+const sessionSchema = new mongoose.Schema({
+    phoneId: String,
+    history: { type: Array, default: [] },
+    updatedAt: { type: Date, default: Date.now }
+});
+const ChatSession = mongoose.model('ChatSession', sessionSchema);
 
 const systemPrompt = `You are an expert Real Estate Assistant working for 11za Real Estate on WhatsApp.
 Your goal is to collect exactly 3 pieces of information to qualify them:
@@ -132,14 +137,12 @@ app.post('/webhook', async (req, res) => {
             return res.status(200).send('AI Disabled');
         }
 
-        // Get or create session
-        if (!userSessions.has(senderId)) {
-            userSessions.set(senderId, {
-                history: []
-            });
+        // Get or create session from MongoDB (Serverless persistent)
+        let session = await ChatSession.findOne({ phoneId: senderId });
+        if (!session) {
+            session = new ChatSession({ phoneId: senderId, history: [] });
         }
         
-        const session = userSessions.get(senderId);
         session.history.push({ role: 'user', parts: [{ text: incomingText }] });
 
         // Call Gemini API
@@ -179,12 +182,14 @@ app.post('/webhook', async (req, res) => {
 
                 // Send final message and clear session
                 await sendWhatsAppMessage(senderId, finalReply);
-                userSessions.delete(senderId);
+                await ChatSession.deleteOne({ phoneId: senderId });
                 return res.status(200).send('Lead saved and matched');
             }
 
             // Normal conversational reply
             session.history.push({ role: 'model', parts: [{ text: replyText }] });
+            session.updatedAt = Date.now();
+            await session.save();
             await sendWhatsAppMessage(senderId, data.replyMsg);
             res.status(200).send('Responded successfully');
 
@@ -192,6 +197,8 @@ app.post('/webhook', async (req, res) => {
             console.error("Failed to parse JSON from Gemini", e, replyText);
             // Fallback if AI messes up JSON format safely
             session.history.push({ role: 'model', parts: [{ text: replyText }] });
+            session.updatedAt = Date.now();
+            await session.save();
             await sendWhatsAppMessage(senderId, replyText);
             res.status(200).send('Responded fallback');
         }
@@ -329,6 +336,10 @@ app.get(/^(.*)$/, (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-});
+if (process.env.VERCEL) {
+    module.exports = app;
+} else {
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
+}
