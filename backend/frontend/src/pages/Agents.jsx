@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Phone, Shield, Circle, UserPlus, Trash2, Edit, X, Plus, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 const Agents = () => {
   const [agents, setAgents] = useState([]);
@@ -48,12 +50,26 @@ const Agents = () => {
     setIsModalOpen(false);
     setEditingId(null);
     setNewAgent({ name: '', phone: '', role: 'Agent', status: 'Online' });
+    toast.success(editingId ? 'Broker details updated!' : 'New Broker added successfully!');
     fetchAgents();
   };
 
   const handleDelete = async (id) => {
-    if(window.confirm('Are you sure you want to remove this agent?')) {
+    const result = await Swal.fire({
+      title: 'Remove Agent?',
+      text: "This agent will be permanently deleted.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#334155',
+      confirmButtonText: 'Yes, remove them!',
+      background: '#1e293b',
+      color: '#fff'
+    });
+    
+    if (result.isConfirmed) {
       await fetch(`/api/agents/${id}`, { method: 'DELETE' });
+      toast.success('Agent removed successfully!');
       fetchAgents();
     }
   };

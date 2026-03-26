@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings as SettingsIcon, Save, Bot, Key, Globe, LayoutDashboard } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 const Settings = () => {
   const [prompt, setPrompt] = useState('');
@@ -31,9 +32,9 @@ const Settings = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
       });
-      alert('AI Configuration Saved Successfully!');
+      toast.success('AI Configuration Saved Successfully!');
     } catch (e) {
-      alert('Failed to save AI config.');
+      toast.error('Failed to save AI config.');
     }
     setSaving(false);
   };
@@ -46,9 +47,9 @@ const Settings = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mistralKey })
       });
-      alert('Mistral API Key Saved Successfully!');
+      toast.success('Mistral API Key Saved Successfully!');
     } catch (e) {
-      alert('Failed to save API key.');
+      toast.error('Failed to save API key.');
     }
     setSaving(false);
   };

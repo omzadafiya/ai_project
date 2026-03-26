@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Phone, MapPin, IndianRupee, Home, Clock } from 'lucide-react';
 
@@ -51,10 +52,13 @@ const Dashboard = () => {
             body: JSON.stringify({ agentId })
         });
         if (res.ok) {
-            alert('Lead assigned & WhatsApp alert sent to Agent!');
+            toast.success('Lead assigned & WhatsApp alert sent to Agent!');
             fetchData();
         }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        toast.error('Failed to assign lead.');
+        console.error(e);
+    }
   };
 
   const columns = [

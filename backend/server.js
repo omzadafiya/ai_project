@@ -238,10 +238,7 @@ app.post('/webhook', async (req, res) => {
 
                 let finalReply = data.replyMsg;
                 if (matches.length > 0) {
-                    const host = req.headers.host || 'ai-project-chi-eight.vercel.app';
-                    const protocol = req.headers['x-forwarded-proto'] || 'https';
-                    
-                    const matchText = matches.map(p => `*🏠 ${p.title}*\n*💰 Price:* ${p.price}\n*📍 Location:* ${p.location}\n*📝 Details:* ${p.description || 'Premium property ready to move in.'}\n*🌐 VIP Brochure:* ${protocol}://${host}/brochure/${p._id}`).join('\n\n------------------\n\n');
+                    const matchText = matches.map(p => `*🏠 ${p.title}*\n*💰 Price:* ${p.price}\n*📍 Location:* ${p.location}\n*📝 Details:* ${p.description || 'Premium property ready to move in.'}\n*🖼️ View Property:* ${p.imageUrl || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=600'}`).join('\n\n------------------\n\n');
                     finalReply = `${data.replyMsg}\n\nHere are the top matches for you in *${data.location}*:\n\n${matchText}\n\nOur agent will contact you shortly ${data.siteVisit === 'Yes' || data.siteVisit === 'yes' ? 'to confirm your site visit slot!' : 'for more details!'}`;
                 }
 
