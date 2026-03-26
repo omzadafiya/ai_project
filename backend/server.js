@@ -3,7 +3,6 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const { GoogleGenAI } = require('@google/genai');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
@@ -20,9 +19,6 @@ if (fs.existsSync(frontendPath)) {
     console.log("CRITICAL: Frontend dist NOT FOUND at", frontendPath);
 }
 app.use(express.static(frontendPath));
-
-// Initialize Gemini
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
@@ -129,7 +125,7 @@ app.post('/webhook', async (req, res) => {
         const settings = await ChatSettings.findOneAndUpdate(
             { phoneId: senderId },
             { $setOnInsert: { aiEnabled: true } },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
         );
 
         if (!settings.aiEnabled) {
@@ -143,16 +139,30 @@ app.post('/webhook', async (req, res) => {
             session = new ChatSession({ phoneId: senderId, history: [] });
         }
         
-        session.history.push({ role: 'user', parts: [{ text: incomingText }] });
+        session.history.push({ role: 'user', content: incomingText });
 
-        // Call Gemini API
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: session.history,
-            config: { systemInstruction: systemPrompt }
+        // Format history for Mistral API, supporting both old Gemini and new formats
+        const mistralMessages = [
+            { role: 'system', content: systemPrompt },
+            ...session.history.map(msg => ({
+                role: (msg.role === 'model' || msg.role === 'assistant') ? 'assistant' : 'user',
+                content: msg.parts ? msg.parts[0].text : (msg.content || '')
+            }))
+        ];
+
+        // Call Mistral API
+        const response = await axios.post('https://api.mistral.ai/v1/chat/completions', {
+            model: 'mistral-large-latest',
+            messages: mistralMessages,
+            response_format: { type: "json_object" }
+        }, {
+            headers: {
+                'Authorization': `Bearer ${process.env.MISTRAL_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
         });
 
-        let replyText = response.text.trim();
+        let replyText = response.data.choices[0].message.content.trim();
         replyText = replyText.replace(/```json/g, '').replace(/```/g, '').trim();
         
         try {
@@ -187,16 +197,16 @@ app.post('/webhook', async (req, res) => {
             }
 
             // Normal conversational reply
-            session.history.push({ role: 'model', parts: [{ text: replyText }] });
+            session.history.push({ role: 'assistant', content: replyText });
             session.updatedAt = Date.now();
             await session.save();
             await sendWhatsAppMessage(senderId, data.replyMsg);
             res.status(200).send('Responded successfully');
 
         } catch (e) {
-            console.error("Failed to parse JSON from Gemini", e, replyText);
+            console.error("Failed to parse JSON from Mistral", e, replyText);
             // Fallback if AI messes up JSON format safely
-            session.history.push({ role: 'model', parts: [{ text: replyText }] });
+            session.history.push({ role: 'assistant', content: replyText });
             session.updatedAt = Date.now();
             await session.save();
             await sendWhatsAppMessage(senderId, replyText);
