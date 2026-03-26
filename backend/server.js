@@ -22,8 +22,8 @@ app.use(express.static(frontendPath));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('✅ MongoDB Connected'))
-    .catch(err => console.error('❌ MongoDB Error:', err));
+  .then(() => console.log('✅ MongoDB Connected'))
+  .catch(err => console.error('❌ MongoDB Error:', err));
 
 // Mongoose Schema for Leads
 const leadSchema = new mongoose.Schema({
@@ -154,9 +154,9 @@ async function sendWhatsAppMessage(to, text, sender = 'ai') {
 app.post('/webhook', async (req, res) => {
     try {
         console.log('Incoming Webhook:', JSON.stringify(req.body, null, 2));
-
+        
         // Extract sender and message text matching 11za format
-        const senderId = req.body.from || req.body.sender || "919904362053";
+        const senderId = req.body.from || req.body.sender || "919904362053"; 
         const senderName = (req.body.whatsapp && req.body.whatsapp.senderName) || 'Client';
         const incomingText = req.body.UserResponse || (req.body.content && req.body.content.text) || req.body.text || "";
 
@@ -186,7 +186,7 @@ app.post('/webhook', async (req, res) => {
         if (!session) {
             session = new ChatSession({ phoneId: senderId, senderName, history: [] });
         }
-
+        
         session.history.push({ role: 'user', content: incomingText });
 
         // Format history for Mistral API, supporting both old Gemini and new formats
@@ -216,7 +216,7 @@ app.post('/webhook', async (req, res) => {
 
         let replyText = response.data.choices[0].message.content.trim();
         replyText = replyText.replace(/```json/g, '').replace(/```/g, '').trim();
-
+        
         try {
             const data = JSON.parse(replyText);
             let finalReply = data.replyMsg;
@@ -330,7 +330,7 @@ app.put('/api/leads/:id/assign', async (req, res) => {
         const { agentId } = req.body;
         const lead = await Lead.findByIdAndUpdate(req.params.id, { assignedAgent: agentId }, { new: true });
         const agent = await Agent.findById(agentId);
-
+        
         if (agent && agent.phone) {
             const agentMsg = `🚨 *New VIP Lead Assigned*\n\n*Name:* ${lead.senderName || lead.phoneId}\n*Requirement:* ${lead.propertyType} in ${lead.location}\n*Budget:* ${lead.budget}\n\nPlease contact them ASAP!`;
             await sendWhatsAppMessage(agent.phone.replace(/[^0-9]/g, ''), agentMsg, 'agent');
@@ -345,16 +345,16 @@ app.post('/api/campaigns/followup', async (req, res) => {
         // Find qualified leads
         const leads = await Lead.find({ status: { $in: ['Qualified', 'Follow Up'] } });
         let count = 0;
-
+        
         for (const lead of leads) {
             const followUpMsg = `Hello ${lead.senderName ? lead.senderName.split(' ')[0] : 'Sir/Madam'}, this is Astro from 11za Realty. I shared some premium properties with you recently.\n\nWould you like me to share the detailed *3D floor-plans and high-res video walkthroughs* for those matches?`;
-
+            
             await sendWhatsAppMessage(lead.phoneId, followUpMsg, 'ai');
-
+            
             // Append to session history so Mistral knows the context when user replies
             await ChatSession.findOneAndUpdate(
                 { phoneId: lead.phoneId },
-                {
+                { 
                     $push: { history: { role: 'assistant', content: followUpMsg } },
                     $set: { updatedAt: Date.now() }
                 }
@@ -515,120 +515,7 @@ app.delete('/api/agents/:id', async (req, res) => {
     }
 });
 
-
-// ─────────────────────────────────────────────
-// V7: AI PDF PROPERTY IMPORTER
-// ─────────────────────────────────────────────
-const multer = require('multer');
-const pdfParse = require('pdf-parse');
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-
-app.post('/api/properties/import-pdf', upload.single('pdf'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).json({ error: 'No PDF uploaded' });
-
-        // Extract raw text from the PDF buffer
-        const pdfData = await pdfParse(req.file.buffer);
-        const rawText = pdfData.text.substring(0, 4000); // Take first 4000 chars to avoid token overflow
-
-        // Ask Mistral to extract property data from the extracted text
-        let mistralKeyConfig = await SystemConfig.findOne({ key: 'mistralKey' });
-        const mistralApiKey = (mistralKeyConfig && mistralKeyConfig.value) ? mistralKeyConfig.value : process.env.MISTRAL_API_KEY;
-
-        const response = await axios.post('https://api.mistral.ai/v1/chat/completions', {
-            model: 'mistral-large-latest',
-            messages: [
-                {
-                    role: 'user',
-                    content: `You are a real estate data extraction assistant. Extract all property listings from the following text and return a JSON array of objects. Each object should have these fields: title, price, location, type, description, imageUrl (set to "" if not found). If multiple properties are described, return all of them. If it is a single property, return an array with one object. ONLY output the raw JSON array, nothing else.\n\nText:\n${rawText}`
-                }
-            ],
-            response_format: { type: "json_object" }
-        }, {
-            headers: { 'Authorization': `Bearer ${mistralApiKey}`, 'Content-Type': 'application/json' }
-        });
-
-        let extracted = JSON.parse(response.data.choices[0].message.content.trim());
-        // Mistral might return { properties: [...] } or just [...]
-        const properties = Array.isArray(extracted) ? extracted : (extracted.properties || extracted.listings || [extracted]);
-
-        const saved = [];
-        for (const prop of properties) {
-            if (prop.title && prop.location) {
-                const newProp = await new Property({
-                    title: prop.title || 'Unnamed Property',
-                    price: prop.price || 'On Request',
-                    location: prop.location || 'Unknown',
-                    type: prop.type || '2BHK',
-                    description: prop.description || '',
-                    imageUrl: prop.imageUrl || ''
-                }).save();
-                saved.push(newProp);
-            }
-        }
-
-        res.json({ success: true, count: saved.length, properties: saved });
-    } catch (error) {
-        console.error('PDF Import Error:', error?.response?.data || error.message);
-        res.status(500).json({ error: 'Failed to process PDF', details: error.message });
-    }
-});
-
-// ─────────────────────────────────────────────
-// V7: ANALYTICS ENGINE
-// ─────────────────────────────────────────────
-app.get('/api/analytics', async (req, res) => {
-    try {
-        // Conversion Funnel by status
-        const funnel = await Lead.aggregate([
-            { $group: { _id: '$status', count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
-        ]);
-
-        // Agent Leaderboard — leads assigned per agent
-        const agentLeaderboard = await Lead.aggregate([
-            { $match: { assignedAgent: { $exists: true, $ne: null } } },
-            { $group: { _id: '$assignedAgent', leadCount: { $sum: 1 } } },
-            { $lookup: { from: 'agents', localField: '_id', foreignField: '_id', as: 'agentInfo' } },
-            { $unwind: { path: '$agentInfo', preserveNullAndEmptyArrays: true } },
-            { $project: { leadCount: 1, agentName: '$agentInfo.name', agentPhone: '$agentInfo.phone' } },
-            { $sort: { leadCount: -1 } },
-            { $limit: 10 }
-        ]);
-
-        // Top Locations
-        const topLocations = await Lead.aggregate([
-            { $match: { location: { $exists: true, $ne: '' } } },
-            { $group: { _id: '$location', count: { $sum: 1 } } },
-            { $sort: { count: -1 } },
-            { $limit: 6 }
-        ]);
-
-        // Lead inflow last 7 days
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        const dailyInflow = await Lead.aggregate([
-            { $match: { createdAt: { $gte: sevenDaysAgo } } },
-            { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
-            { $sort: { _id: 1 } }
-        ]);
-
-        // Property type distribution
-        const propertyTypeDist = await Lead.aggregate([
-            { $match: { propertyType: { $exists: true, $ne: '' } } },
-            { $group: { _id: '$propertyType', count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
-        ]);
-
-        res.json({ funnel, agentLeaderboard, topLocations, dailyInflow, propertyTypeDist });
-    } catch (error) {
-        console.error('Analytics Error:', error.message);
-        res.status(500).json({ error: 'Analytics aggregation failed' });
-    }
-});
-
 // React SPA Fallback Route
-
 // SPA Fallback: Serve index.html for all other non-API/webhook routes
 app.get(/^(.*)$/, (req, res) => {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/webhook')) {
