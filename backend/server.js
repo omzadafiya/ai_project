@@ -470,6 +470,31 @@ app.put('/api/settings/prompt', async (req, res) => {
     }
 });
 
+// Generic Settings Config (for company info, follow-up message, etc.)
+app.get('/api/settings/config', async (req, res) => {
+    try {
+        const configs = await SystemConfig.find({ key: { $in: ['companyName', 'companyPhone', 'whatsappNumber', 'followUpMessage', 'botLanguage', 'maxLeadsPerAgent'] } });
+        const result = {};
+        configs.forEach(c => { result[c.key] = c.value; });
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch config' });
+    }
+});
+
+app.put('/api/settings/config', async (req, res) => {
+    try {
+        const updates = req.body; // { key: value, key2: value2 }
+        for (const [key, value] of Object.entries(updates)) {
+            await SystemConfig.findOneAndUpdate({ key }, { value }, { upsert: true });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to save config' });
+    }
+});
+
+
 app.get('/api/settings/keys', async (req, res) => {
     try {
         const keyConfig = await SystemConfig.findOne({ key: 'mistralKey' });
