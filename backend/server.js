@@ -290,7 +290,10 @@ app.post('/webhook', async (req, res) => {
                 }
 
                 await sendWhatsAppMessage(senderId, finalReply);
-                await ChatSession.deleteOne({ phoneId: senderId });
+                // Keep session alive so Live Chat shows the full conversation
+                session.history.push({ role: 'assistant', content: finalReply });
+                session.updatedAt = Date.now();
+                await session.save();
                 return res.status(200).send('Lead saved and matched');
             }
 
@@ -428,10 +431,19 @@ app.get('/api/leads/poll', async (req, res) => {
     console.log("Polling endpoint hit for new leads UI");
 });
 
-// Chat APIs
+// Chat APIs — serve full conversation from ChatSession history
 app.get('/api/chats/:phoneId', async (req, res) => {
     try {
-        const msgs = await Message.find({ phoneId: req.params.phoneId }).sort({ createdAt: 1 });
+        const session = await ChatSession.findOne({ phoneId: req.params.phoneId });
+        if (!session) return res.json([]);
+        // Map history to a format LiveChat.jsx can render
+        const msgs = (session.history || []).map((msg, i) => ({
+            _id: `${session._id}_${i}`,
+            phoneId: req.params.phoneId,
+            sender: (msg.role === 'user') ? 'user' : 'ai',
+            text: msg.parts ? msg.parts[0].text : (msg.content || ''),
+            createdAt: session.updatedAt || session.createdAt
+        }));
         res.json(msgs);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch messages' });
