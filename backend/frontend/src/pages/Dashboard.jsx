@@ -1,13 +1,45 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, MapPin, IndianRupee, Home, Clock, MessageSquare, LayoutDashboard } from 'lucide-react';
+import { Phone, MapPin, IndianRupee, Home, Clock, MessageSquare, LayoutDashboard, Search, X, Filter } from 'lucide-react';
 
 const Dashboard = () => {
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState({ totalLeads: 0, totalProperties: 0, statusCounts: [] });
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Search & Filter State
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterType, setFilterType] = useState('All');
+  const [filterAgent, setFilterAgent] = useState('All');
+
+  // Derived filtered leads (client-side, instant)
+  const filteredLeads = useMemo(() => {
+    return leads.filter(lead => {
+      const s = search.toLowerCase();
+      const matchSearch = !s ||
+        (lead.senderName || '').toLowerCase().includes(s) ||
+        (lead.phoneId || '').includes(s) ||
+        (lead.location || '').toLowerCase().includes(s) ||
+        (lead.budget || '').toLowerCase().includes(s);
+      const matchStatus = filterStatus === 'All' || lead.status === filterStatus;
+      const matchType = filterType === 'All' || lead.propertyType === filterType;
+      const matchAgent = filterAgent === 'All' ||
+        (filterAgent === 'Unassigned' ? !lead.assignedAgent : lead.assignedAgent === filterAgent);
+      return matchSearch && matchStatus && matchType && matchAgent;
+    });
+  }, [leads, search, filterStatus, filterType, filterAgent]);
+
+  const hasActiveFilters = search || filterStatus !== 'All' || filterType !== 'All' || filterAgent !== 'All';
+
+  const clearFilters = () => {
+    setSearch('');
+    setFilterStatus('All');
+    setFilterType('All');
+    setFilterAgent('All');
+  };
 
   const fetchData = async () => {
     try {
@@ -97,6 +129,68 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* ── Search & Filter Bar ── */}
+      <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4 flex flex-wrap gap-3 items-center">
+        {/* Live Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search name, phone, location, budget..."
+            className="w-full bg-black/30 border border-white/5 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/60 transition-colors"
+          />
+        </div>
+
+        {/* Status Filter */}
+        <select
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          className="bg-black/30 border border-white/5 text-sm text-slate-300 px-3 py-2 rounded-xl outline-none focus:border-indigo-500/60 transition-colors cursor-pointer"
+        >
+          <option value="All">All Status</option>
+          {columns.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+        </select>
+
+        {/* Property Type Filter */}
+        <select
+          value={filterType}
+          onChange={e => setFilterType(e.target.value)}
+          className="bg-black/30 border border-white/5 text-sm text-slate-300 px-3 py-2 rounded-xl outline-none focus:border-indigo-500/60 transition-colors cursor-pointer"
+        >
+          <option value="All">All Types</option>
+          {['1BHK','2BHK','3BHK','4BHK','Villa','Commercial','Land'].map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+
+        {/* Agent Filter */}
+        <select
+          value={filterAgent}
+          onChange={e => setFilterAgent(e.target.value)}
+          className="bg-black/30 border border-white/5 text-sm text-slate-300 px-3 py-2 rounded-xl outline-none focus:border-indigo-500/60 transition-colors cursor-pointer"
+        >
+          <option value="All">All Brokers</option>
+          <option value="Unassigned">Unassigned</option>
+          {agents.map(a => <option key={a._id} value={a._id}>{a.name}</option>)}
+        </select>
+
+        {/* Clear Button — only shows if a filter is active */}
+        {hasActiveFilters && (
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1.5 text-xs font-bold text-rose-400 hover:text-rose-300 border border-rose-500/20 hover:border-rose-400/40 px-3 py-2 rounded-xl transition-all"
+          >
+            <X size={12} /> Clear Filters
+          </button>
+        )}
+
+        {/* Active filter count badge */}
+        {hasActiveFilters && (
+          <span className="text-xs font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
+            {filteredLeads.length} result{filteredLeads.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+
       {/* Analytics Bar */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {[
@@ -138,7 +232,7 @@ const Dashboard = () => {
                   ))}
                 </div>
               ) : (
-                leads.filter(l => l.status === col.id).map(lead => (
+                filteredLeads.filter(l => l.status === col.id).map(lead => (
                   <motion.div
                     key={lead._id}
                     layoutId={lead._id}
@@ -208,9 +302,9 @@ const Dashboard = () => {
               )}
             </AnimatePresence>
             
-            {leads.filter(l => l.status === col.id).length === 0 && !loading && (
+            {filteredLeads.filter(l => l.status === col.id).length === 0 && !loading && (
               <div className="h-24 border-2 border-dashed border-white/5 rounded-xl flex items-center justify-center text-slate-500 text-sm font-medium">
-                No leads yet
+                {hasActiveFilters ? 'No matches' : 'No leads yet'}
               </div>
             )}
           </div>
