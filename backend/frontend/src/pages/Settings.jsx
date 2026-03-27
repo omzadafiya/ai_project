@@ -177,22 +177,6 @@ const Settings = () => {
                 </div>
               </div>
 
-              {/* Follow-up Campaign Message */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-white/5">
-                  <MessageSquare size={16} className="text-emerald-400" />
-                  <h4 className="font-bold text-white text-sm">Follow-up Campaign Message</h4>
-                </div>
-                <div>
-                  <label className={labelClass}>Message Template</label>
-                  <textarea value={config.followUpMessage}
-                    onChange={e => setConfig({ ...config, followUpMessage: e.target.value })}
-                    rows={4} placeholder={`Hello {name}, this is Astro from 11za Realty. Would you like to see the 3D floor-plans for the properties we shared?`}
-                    className={`${inputClass} resize-none leading-relaxed`} />
-                  <p className="text-[10px] text-slate-500 mt-1">Use <code className="bg-white/5 px-1 rounded">{'{name}'}</code> to auto-insert the lead's first name in the message</p>
-                </div>
-              </div>
-
               {/* Webhook URL */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 pb-2 border-b border-white/5">

@@ -6,6 +6,9 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 const path = require('path');
 const fs = require('fs');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'astro_estate_secret_2024';
 
 const app = express();
 app.use(cors());
@@ -24,6 +27,31 @@ app.use(express.static(frontendPath));
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ MongoDB Connected'))
   .catch(err => console.error('❌ MongoDB Error:', err));
+
+// --- Auth Routes ---
+app.post('/api/auth/login', (req, res) => {
+    const { username, password } = req.body;
+    const ADMIN_USER = process.env.ADMIN_USER || 'admin';
+    const ADMIN_PASS = process.env.ADMIN_PASS || 'admin123';
+    if (username === ADMIN_USER && password === ADMIN_PASS) {
+        const token = jwt.sign({ username, role: 'admin' }, JWT_SECRET, { expiresIn: '7d' });
+        return res.json({ token, username });
+    }
+    return res.status(401).json({ error: 'Invalid username or password' });
+});
+
+app.get('/api/auth/verify', (req, res) => {
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ valid: false });
+    try {
+        const decoded = jwt.verify(auth.split(' ')[1], JWT_SECRET);
+        return res.json({ valid: true, username: decoded.username });
+    } catch {
+        return res.status(401).json({ valid: false });
+    }
+});
+
+
 
 // Mongoose Schema for Leads
 const leadSchema = new mongoose.Schema({
