@@ -200,26 +200,22 @@ app.post('/webhook', async (req, res) => {
             { upsert: true, returnDocument: 'after' }
         );
 
+        // Get or create session AND push incoming user message to history
+        let session = await ChatSession.findOneAndUpdate(
+            { phoneId: senderId },
+            { 
+                $set: { senderName, updatedAt: Date.now() },
+                $push: { history: { role: 'user', content: incomingText } },
+                $setOnInsert: { phoneId: senderId }
+            },
+            { new: true, upsert: true }
+        );
+
         if (!settings.aiEnabled) {
             console.log(`🤖 AI is disabled for ${senderId}. Waiting for human agent.`);
             return res.status(200).send('AI Disabled');
         }
 
-        // Get or create session from MongoDB (Serverless persistent)
-        let session = await ChatSession.findOneAndUpdate(
-            { phoneId: senderId },
-            { 
-                $set: { senderName, updatedAt: Date.now() },
-                $setOnInsert: { phoneId: senderId, history: [] }
-            },
-            { new: true, upsert: true }
-        );
-        if (!session) {
-            session = new ChatSession({ phoneId: senderId, senderName, history: [] });
-            await session.save();
-        }
-        
-        session.history.push({ role: 'user', content: incomingText });
 
         // Format history for Mistral API, supporting both old Gemini and new formats
         const currentSystemPrompt = await getSystemPrompt();
@@ -440,7 +436,7 @@ app.get('/api/chats/:phoneId', async (req, res) => {
         const msgs = (session.history || []).map((msg, i) => ({
             _id: `${session._id}_${i}`,
             phoneId: req.params.phoneId,
-            sender: (msg.role === 'user') ? 'user' : 'ai',
+            sender: (msg.role === 'user') ? 'user' : (msg.sender || 'ai'),
             text: msg.parts ? msg.parts[0].text : (msg.content || ''),
             createdAt: session.updatedAt || session.createdAt
         }));
@@ -463,6 +459,17 @@ app.post('/api/chat/reply', async (req, res) => {
     try {
         const { phoneId, text } = req.body;
         await sendWhatsAppMessage(phoneId, text, 'agent');
+        
+        // Save manual reply to session history so it shows in Live Chat
+        await ChatSession.findOneAndUpdate(
+            { phoneId },
+            { 
+                $push: { history: { role: 'assistant', content: text, sender: 'agent' } },
+                $set: { updatedAt: Date.now() }
+            },
+            { upsert: true }
+        );
+        
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: 'Failed to send agent reply' });

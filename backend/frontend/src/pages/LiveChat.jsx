@@ -51,6 +51,16 @@ const LiveChat = () => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
+    // Auto-poll for new messages every 5 seconds
+    useEffect(() => {
+        if (!selectedPhone) return;
+        const interval = setInterval(() => {
+            fetchMessages(selectedPhone);
+        }, 5000);
+        return () => clearInterval(interval);
+    }, [selectedPhone]);
+
+
     const handleSend = async (e) => {
         e.preventDefault();
         if (!input.trim() || !selectedPhone) return;
