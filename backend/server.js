@@ -389,7 +389,8 @@ app.post('/api/campaigns/followup', async (req, res) => {
         let count = 0;
         
         for (const lead of leads) {
-            const followUpMsg = `Hello ${lead.senderName ? lead.senderName.split(' ')[0] : 'Sir/Madam'}, this is Astro from 11za Realty. I shared some premium properties with you recently.\n\nWould you like me to share the detailed *3D floor-plans and high-res video walkthroughs* for those matches?`;
+            const name = lead.senderName ? lead.senderName.split(' ')[0] : 'Sir/Madam';
+            const followUpMsg = `Hello ${name}! 👋\n\nYe *Astro* bol raha hun, *11za Realty* se. 🏡\n\nHumne kuch time pehle aapki property requirement ke baare mein baat ki thi.\n\nKya aap abhi bhi ghar dhundh rahe hain? 😊\n\nSirf *Ha* ya *Yes* reply karo — hum aapki poori help karenge!`;
             
             await sendWhatsAppMessage(lead.phoneId, followUpMsg, 'ai');
             
