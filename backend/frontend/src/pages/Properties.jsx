@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Building2, MapPin, IndianRupee, Trash2, X } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 const Properties = () => {
   const [properties, setProperties] = useState([]);
@@ -37,21 +39,43 @@ const Properties = () => {
         body: JSON.stringify(formData)
       });
       if (res.ok) {
+        toast.success('✅ Property listed successfully!');
         setShowModal(false);
         setFormData({ title: '', location: '', price: '', type: '2BHK', description: '', imageUrl: '' });
         fetchProperties();
+      } else {
+        toast.error('Failed to add property');
       }
     } catch (error) {
+      toast.error('Network error, please try again');
       console.error("Error saving property", error);
     }
   };
 
   const deleteProperty = async (id) => {
-    if(!confirm("Are you sure?")) return;
+    const result = await Swal.fire({
+      title: 'Remove Property?',
+      text: 'This listing will be permanently deleted.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#374151',
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel',
+      background: '#0f172a',
+      color: '#fff'
+    });
+    if (!result.isConfirmed) return;
     try {
       const res = await fetch(`/api/properties/${id}`, { method: 'DELETE' });
-      if (res.ok) fetchProperties();
+      if (res.ok) {
+        toast.success('🗑️ Property removed');
+        fetchProperties();
+      } else {
+        toast.error('Failed to delete');
+      }
     } catch (error) {
+      toast.error('Network error');
       console.error("Error deleting", error);
     }
   };

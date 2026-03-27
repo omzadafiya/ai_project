@@ -247,8 +247,17 @@ app.post('/webhook', async (req, res) => {
                     }
                     const matches = await Property.find({ location: new RegExp(data.location, 'i') }).limit(3);
                     if (matches.length > 0) {
-                        const matchText = matches.map(p => `*🏠 ${p.title}*\n*💰 Price:* ${p.price}\n*📍 Location:* ${p.location}\n*📝 Details:* ${p.description || 'Premium property ready to move in.'}\n*🖼️ View Property:* ${p.imageUrl || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=600'}`).join('\n\n------------------\n\n');
-                        finalReply = `${data.replyMsg}\n\nHere are the top matches for you in *${data.location}*:\n\n${matchText}\n\nOur executive will coordinate with you shortly ${data.siteVisit === 'Yes' || data.siteVisit === 'yes' ? 'to confirm your site visit slot!' : 'for more details!'}`;
+                        const matchText = matches.map((p, i) => {
+                        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+                        return `${medal} *Option ${i + 1}: ${p.title}*\n━━━━━━━━━━━━━━━━━━\n💰 *Price:* ${p.price}\n📍 *Location:* ${p.location}\n🏠 *Type:* ${p.type || data.type}\n📝 *Highlights:* ${p.description || 'Ready to move in. Premium amenities.'}\n🖼️ *View Photos:* ${p.imageUrl || 'Contact us for photos'}`;
+                    }).join('\n\n');
+
+                    const siteVisitLine = (data.siteVisit === 'Yes' || data.siteVisit === 'yes')
+                        ? `\n\n📅 *Site Visit:* Our executive will call you shortly to confirm your *FREE VIP site tour* slot!`
+                        : `\n\n📞 *Next Step:* Our property consultant will reach out to you shortly with more details.`;
+
+                    finalReply = `${data.replyMsg}\n\n✨ *Your Curated Matches in ${data.location}*\n━━━━━━━━━━━━━━━━━━━━\n\n${matchText}${siteVisitLine}\n\n_— Astro | 11za Realty | Your Trusted Property Partner_ 🏡`;
+
                     }
                 }
 
