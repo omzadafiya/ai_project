@@ -180,11 +180,15 @@ app.post('/webhook', async (req, res) => {
         // Get or create session from MongoDB (Serverless persistent)
         let session = await ChatSession.findOneAndUpdate(
             { phoneId: senderId },
-            { $set: { senderName, updatedAt: Date.now() } },
-            { new: true }
+            { 
+                $set: { senderName, updatedAt: Date.now() },
+                $setOnInsert: { phoneId: senderId, history: [] }
+            },
+            { new: true, upsert: true }
         );
         if (!session) {
             session = new ChatSession({ phoneId: senderId, senderName, history: [] });
+            await session.save();
         }
         
         session.history.push({ role: 'user', content: incomingText });
@@ -332,7 +336,8 @@ app.put('/api/leads/:id/assign', async (req, res) => {
         const agent = await Agent.findById(agentId);
         
         if (agent && agent.phone) {
-            const agentMsg = `🚨 *New VIP Lead Assigned*\n\n*Name:* ${lead.senderName || lead.phoneId}\n*Requirement:* ${lead.propertyType} in ${lead.location}\n*Budget:* ${lead.budget}\n\nPlease contact them ASAP!`;
+            const leadPhone = lead.phoneId ? '\n*Mobile:* +' + lead.phoneId : '';
+            const agentMsg = `🚨 *New VIP Lead Assigned*\n\n*Name:* ${lead.senderName || 'Client'}${leadPhone}\n*Requirement:* ${lead.propertyType || 'N/A'} in ${lead.location || 'N/A'}\n*Budget:* ${lead.budget || 'N/A'}\n\n📞 Please contact them on WhatsApp ASAP!`;
             await sendWhatsAppMessage(agent.phone.replace(/[^0-9]/g, ''), agentMsg, 'agent');
             await Agent.findByIdAndUpdate(agentId, { $inc: { leads: 1 } });
         }
